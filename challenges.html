@@ -116,6 +116,13 @@ function render() {
       (c.questions.length < 2 ? `<p class="hint">💡 A quiz can have as many questions as you like. Students answer them one by one.</p>` : "")) + "</div>").join("");
 }
 
+function persistDraft() {
+  // Keep the newly created/edited challenge in the current lesson immediately.
+  // This prevents a newly added challenge from disappearing if the page is
+  // refreshed or the admin navigates away before pressing SAVE.
+  localStorage.setItem("robotLessons", JSON.stringify(lessons));
+}
+
 list.addEventListener("input", e => {
   const t = e.target; if (!t.dataset.p) return;
   if (t.dataset.single !== undefined) { walk(t.dataset.single.split(".")).forEach((o, k) => { o.ok = k === +t.dataset.k; }); return; }
@@ -129,8 +136,15 @@ list.addEventListener("change", async e => {
 document.body.addEventListener("click", e => {
   const b = e.target.closest("button[data-a]"); if (!b) return;
   const a = b.dataset.a, p = b.dataset.p;
-  if (a === "addgame") { if (C.some(c => c.type === "game")) return alert("Only one Game per lesson."); C.push({ type: "game", title: "Game", cid: newId() }); }
-  if (a === "addquiz") C.push({ type: "quiz", title: "Quiz", cid: newId(), questions: [D.q("choice")] });
+  if (a === "addgame") {
+    if (C.some(c => c.type === "game")) return alert("Only one Game per lesson.");
+    C.push({ type: "game", title: "Game", cid: newId() });
+    persistDraft();
+  }
+  if (a === "addquiz") {
+    C.push({ type: "quiz", title: "Quiz", cid: newId(), questions: [D.q("choice")] });
+    persistDraft();
+  }
   if (a === "up" || a === "dn" || a === "delc") {
     const i = +p;
     if (a === "up" && i > 0) C.splice(i - 1, 0, C.splice(i, 1)[0]);
@@ -142,6 +156,9 @@ document.body.addEventListener("click", e => {
   if (a === "dup") { const s = p.split("."), j = +s.pop(), arr = walk(s); arr.splice(j + 1, 0, JSON.parse(JSON.stringify(arr[j]))); }
   if (a === "del") { const s = p.split("."), i = +s.pop(); if (s.length > 2 || confirm("Delete this question?")) walk(s).splice(i, 1); }
   if (a === "clrimg") setPath(p, "");
+  // Structural challenge/question changes are persisted immediately.
+  // Text input still waits for SAVE so translation/validation remains intact.
+  if (["up", "dn", "delc", "push", "addq", "dup", "del", "clrimg"].includes(a)) persistDraft();
   render();
 });
 
