@@ -1,6 +1,6 @@
 // ISI DUA BARIS INI SETELAH DEPLOY APPS SCRIPT (lihat apps-script/Code.gs)
-const API_URL = "PASTE_URL_WEB_APP_DI_SINI";
-const SHEET_URL = "PASTE_LINK_GOOGLE_SHEET_DI_SINI";
+const API_URL = "AKfycbxF2UQSaXxFy1U0AVTmbDTxXMG4kSV8K6I6o8HMPJ4VZpJweWcz3PML5In1iBftCvzE";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbxF2UQSaXxFy1U0AVTmbDTxXMG4kSV8K6I6o8HMPJ4VZpJweWcz3PML5In1iBftCvzE/exec";
 
 async function api(action, data) {
     const r = await fetch(API_URL, {
