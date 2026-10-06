@@ -1,5 +1,5 @@
 // ISI DUA BARIS INI SETELAH DEPLOY APPS SCRIPT (lihat apps-script/Code.gs)
-const API_URL = "https://script.google.com/macros/s/AKfycbxF2UQSaXxFy1U0AVTmbDTxXMG4kSV8K6I6o8HMPJ4VZpJweWcz3PML5In1iBftCvzE/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxLjKQYA-EKPJV2LGnPg1SWFm1hRieE8h6IbBQY8V7R3v9ZxxkyhgFmhlND0pnJdfLy/exec";
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/14cX5ApZxgmDHWYca7CIxRctj7Sf4FRCmkHS0Jt9COks/edit?usp=sharing";
 
 async function api(action, data) {
