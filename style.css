@@ -669,7 +669,7 @@ body {
     height: 100%;
     position: relative;
     background-image:
-        url("assets/background.png");
+        url("assets/background.webp");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;

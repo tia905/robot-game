@@ -1,4 +1,17 @@
 /* =========================================================
+   BAHASA (murid): ikut pilihan tombol ID di halaman murid
+========================================================= */
+const isIndonesian =
+    new URLSearchParams(window.location.search).get("student") === "1" &&
+    localStorage.getItem("robotLang") === "id";
+
+const ID_TEXT = {"Level Complete!":"Level Selesai!","Great job! You reached the goal.":"Kerja bagus! Kamu sampai di tujuan.","Bonus Level Complete! ⭐":"Level Bonus Selesai! ⭐","Amazing! You cleared a bonus level.":"Keren! Kamu menyelesaikan level bonus.","Great job! Bonus levels are now open ⭐":"Kerja bagus! Level bonus sudah terbuka ⭐","NEXT LEVEL":"LEVEL BERIKUTNYA","DONE":"SELESAI","BONUS LEVEL ⭐":"LEVEL BONUS ⭐","Oops!":"Ups!","There is no path there.":"Tidak ada jalan di sana.","The robot bumped into something.":"Robot menabrak sesuatu.","Try Again!":"Coba Lagi!","The robot did not complete the path.":"Robot belum menyelesaikan jalurnya.","Too Many Blocks":"Terlalu Banyak Blok","MOVE FORWARD":"MAJU","TURN LEFT":"BELOK KIRI","TURN RIGHT":"BELOK KANAN","REPEAT [ 2 ] TIMES":"ULANGI [ 2 ] KALI","REPEAT [ ] TIMES":"ULANGI [ ] KALI","BUILD A HOUSE":"BANGUN RUMAH","BUILD A SCHOOL":"BANGUN SEKOLAH","BUILD A GARDEN":"BANGUN TAMAN","GO TO X [ ] Y [ ]":"PERGI KE X [ ] Y [ ]","PICK UP CARGO":"AMBIL BARANG","PUT DOWN CARGO":"LETAKKAN BARANG","IF / ELSE":"JIKA / MAKA","CARGO COLOR":"WARNA BARANG","REPEAT":"ULANGI","TIMES":"KALI","Drop blocks here":"Lepas blok di sini","Drag blocks here":"Seret blok ke sini"};
+
+function tt(text) {
+    return isIndonesian && ID_TEXT[text] ? ID_TEXT[text] : text;
+}
+
+/* =========================================================
    ELEMENTS
 ========================================================= */
 
@@ -191,40 +204,40 @@ const isCoordinateLesson =
 const blockLabels = {
 
     forward:
-        "MOVE FORWARD",
+        tt("MOVE FORWARD"),
 
     left:
-        "TURN LEFT",
+        tt("TURN LEFT"),
 
     right:
-        "TURN RIGHT",
+        tt("TURN RIGHT"),
 
     repeat:
-        "REPEAT [ ] TIMES",
+        tt("REPEAT [ ] TIMES"),
 
     buildHouse:
-        "BUILD A HOUSE",
+        tt("BUILD A HOUSE"),
 
     buildSchool:
-        "BUILD A SCHOOL",
+        tt("BUILD A SCHOOL"),
 
     buildGarden:
-        "BUILD A GARDEN",
+        tt("BUILD A GARDEN"),
 
     goto:
-        "GO TO X [ ] Y [ ]",
+        tt("GO TO X [ ] Y [ ]"),
 
     pickup:
-        "PICK UP CARGO",
+        tt("PICK UP CARGO"),
 
     putdown:
-        "PUT DOWN CARGO",
+        tt("PUT DOWN CARGO"),
 
     if:
-        "IF / ELSE",
+        tt("IF / ELSE"),
 
     cargoColor:
-        "CARGO COLOR"
+        tt("CARGO COLOR")
 
 };
 
@@ -2463,10 +2476,10 @@ function showBlockedMessage() {
 
 
     messageTitle.textContent =
-        "Oops!";
+        tt("Oops!");
 
     messageText.textContent =
-        "There is no path there.";
+        tt("There is no path there.");
 
     nextLevelButton.style.display =
         "none";
@@ -2497,10 +2510,10 @@ function showBlockedMessage() {
 function showCollisionMessage() {
 
     messageTitle.textContent =
-        "Oops!";
+        tt("Oops!");
 
     messageText.textContent =
-        "The robot bumped into something.";
+        tt("The robot bumped into something.");
 
     nextLevelButton.style.display =
         "none";
@@ -2515,10 +2528,10 @@ function showCollisionMessage() {
 function showFailMessage() {
 
     messageTitle.textContent =
-        "Try Again!";
+        tt("Try Again!");
 
     messageText.textContent =
-        "The robot did not complete the path.";
+        tt("The robot did not complete the path.");
 
     nextLevelButton.style.display =
         "none";
@@ -2601,13 +2614,13 @@ function completeLevel() {
 
     messageTitle.textContent =
         isBonus
-            ? "Bonus Level Complete! ⭐"
-            : "Level Complete!";
+            ? tt("Bonus Level Complete! ⭐")
+            : tt("Level Complete!");
 
     messageText.textContent =
         isBonus
-            ? "Amazing! You cleared a bonus level."
-            : "Great job! You reached the goal.";
+            ? tt("Amazing! You cleared a bonus level.")
+            : tt("Great job! You reached the goal.");
 
     nextLevelButton.style.display =
         "inline-block";
@@ -2619,7 +2632,7 @@ function completeLevel() {
     ) {
 
         nextLevelButton.textContent =
-            "DONE";
+            tt("DONE");
 
     }
 
@@ -2629,17 +2642,17 @@ function completeLevel() {
     ) {
 
         messageText.textContent =
-            "Great job! Bonus levels are now open ⭐";
+            tt("Great job! Bonus levels are now open ⭐");
 
         nextLevelButton.textContent =
-            "BONUS LEVEL ⭐";
+            tt("BONUS LEVEL ⭐");
 
     }
 
     else {
 
         nextLevelButton.textContent =
-            "NEXT LEVEL";
+            tt("NEXT LEVEL");
 
     }
 
@@ -3388,7 +3401,7 @@ function createSourceBlock(
     ) {
 
         block.textContent =
-            "REPEAT [ 2 ] TIMES";
+            tt("REPEAT [ 2 ] TIMES");
 
     }
 
@@ -3630,7 +3643,7 @@ function createProgramBlock(
 
 
         repeatLabel.textContent =
-            "REPEAT";
+            tt("REPEAT");
 
 
         const repeatInput =
@@ -3683,7 +3696,7 @@ function createProgramBlock(
 
 
         timesLabel.textContent =
-            "TIMES";
+            tt("TIMES");
 
 
         repeatHeader.appendChild(
@@ -4003,7 +4016,7 @@ function updateRepeatPlaceholder() {
 
 
                     placeholder.textContent =
-                        "Drop blocks here";
+                        tt("Drop blocks here");
 
 
                     body.appendChild(
@@ -4235,7 +4248,7 @@ function showEmptyText() {
 
 
     emptyText.textContent =
-        "Drag blocks here";
+        tt("Drag blocks here");
 
 
     program.appendChild(
@@ -4599,11 +4612,11 @@ runButton.addEventListener(
         ) {
 
             messageTitle.textContent =
-                "Too Many Blocks";
+                tt("Too Many Blocks");
 
 
             messageText.textContent =
-                `Use ${level.maxBlocks} blocks or fewer.`;
+                (isIndonesian ? `Pakai maksimal ${level.maxBlocks} blok.` : `Use ${level.maxBlocks} blocks or fewer.`);
 
 
             nextLevelButton.style.display =
@@ -4879,4 +4892,15 @@ if (isStudentMode) {
     requestAnimationFrame(function () {
         requestAnimationFrame(function () { suspendSave = false; });
     });
+}
+
+
+if (isIndonesian) {
+    const setText = function (selector, text) { const el = document.querySelector(selector); if (el) el.textContent = text; };
+    setText(".blocks-panel h2", "Blok");
+    setText(".program-header h2", "Programku");
+    setText(".start-block", "SAAT TOMBOL MULAI DIKLIK");
+    setText("#reset-button", "ATUR ULANG");
+    setText(".empty-text", "Seret blok ke sini");
+    document.documentElement.lang = "id";
 }

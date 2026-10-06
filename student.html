@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Robot Coding Game</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" media="print" onload="this.media='all'">
+<link rel="preconnect" href="https://script.google.com"><link rel="preconnect" href="https://script.googleusercontent.com" crossorigin><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" media="print" onload="this.media='all'">
 <style>
 :root{--o:#E8832A;--g:#3FA535;--b:#1B4F9C;--n:#0F2F6B;--bg:#FFF8EC}
 *{box-sizing:border-box}
@@ -17,7 +17,7 @@ button:active{transform:translateY(3px);box-shadow:none}
 .idt{padding:5px 16px;font-size:18px;background:#fff;color:var(--n);border:3px solid var(--n);box-shadow:none}.idt.on{background:#e6f7e3}
 body:not(.id-on) .tr{display:none}
 .card{background:#fff;border-radius:24px;padding:22px;box-shadow:0 5px 0 #0f2f6b18}
-h1,h2{margin:0 0 8px}small{display:block;opacity:.65;font-weight:500;font-size:.72em}
+h1,h2{margin:0 0 8px}small{display:block;opacity:.65;font-weight:500;font-size:.72em}small.tr{opacity:.85;color:#4a5f8a;font-size:.8em;line-height:1.3;margin-top:2px}
 input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px solid #cfdcf3;border-radius:14px;width:100%;margin:6px 0 12px;background:#fff;color:var(--n)}
 .login{max-width:440px;margin:30px auto;text-align:center}
 .login button,.go{width:100%;background:var(--o);box-shadow:0 4px 0 #a85a14;margin-top:10px}
@@ -40,7 +40,7 @@ input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px sol
 .opt.sel{border-color:var(--b);background:#e8f0ff}.opt.sel b{background:var(--b)}
 .right{border-color:var(--g)!important;background:#e6f7e3!important}.wrong{border-color:#e0483e!important;background:#fdeceb!important}
 .dp{line-height:2.1}.dp select{width:auto;display:inline-block;margin:0 4px;padding:4px 8px}
-.mx{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:start}.mx svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
+.mx{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:start}@media(max-width:560px){.mx{gap:44px}.m{padding:10px 8px;font-size:16px}.card{padding:16px}.node{width:110px}}.mx svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
 .m{position:relative;padding:12px;margin:8px 0;border:4px solid #dbe4f5;border-radius:16px;cursor:pointer;text-align:center;background:#fff;touch-action:none;user-select:none}.m.sel{background:#fff1e0;border-color:var(--o)}
 .m.l::after,.m.r::before{content:"";position:absolute;top:50%;width:18px;height:18px;border-radius:50%;background:#fff;border:4px solid #8a94a6;transform:translateY(-50%);z-index:4}.m.l::after{right:-13px}.m.r::before{left:-13px}
 .cd{touch-action:none;user-select:none;-webkit-user-select:none}.cd img{display:block;max-width:130px;max-height:80px;margin:0 auto 4px;border-radius:8px;pointer-events:none}
@@ -52,7 +52,7 @@ input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px sol
 .dzl{font-weight:800;margin-bottom:6px}.dzl img{display:block;max-width:100%;max-height:90px;margin:0 auto 4px;border-radius:8px}.dzb{min-height:52px;display:grid;place-items:center}.dzb .cd{margin:0}.ph{opacity:.35;font-size:26px}
 .fix{margin-top:6px;font-size:14px;font-weight:700;color:#2a7a22}.fix img{max-height:48px;display:block;margin:0 auto}
 .ta{font-family:inherit;font-size:18px;padding:10px 12px;border:3px solid #cfdcf3;border-radius:14px;width:100%;margin:6px 0}
-.tries{margin-left:10px;padding:3px 12px;background:#fff1e0;border:3px solid var(--o);border-radius:14px;font-weight:800;font-size:16px}
+.trow{text-align:center;margin:-6px 0 12px}.trow:empty{display:none}.tries{display:inline-block;padding:3px 12px;background:#fff1e0;border:3px solid var(--o);border-radius:14px;font-weight:800;font-size:16px}
 .slots,.pool{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
 .slot{min-width:130px;min-height:70px;padding:6px;border:3px dashed #9db4e0;border-radius:16px;position:relative;cursor:pointer}.slot.sel{border-color:var(--o);background:#fff6ea}
 .slot small{position:absolute;top:2px;left:8px}
@@ -94,7 +94,7 @@ const UI = {
   sure: { en: "Start this quiz again? Your old answers will be replaced.", id: "Ulangi quiz ini? Jawaban lama akan diganti." },
   retry2: { en: "Not quite. Try again! 💪", id: "Belum tepat. Coba lagi! 💪" }, chances: { en: "Chances left", id: "Sisa kesempatan" }, manual: { en: "Answer saved. Your teacher will check it ✅", id: "Jawaban tersimpan. Gurumu yang akan memeriksa ✅" }, bonus: { en: "bonus", id: "bonus" }
 };
-const U = k => T(UI[k]), msg = k => lang === "id" ? UI[k].id + "\n" + UI[k].en : UI[k].en, plain = k => lang === "id" ? UI[k].en + " / " + UI[k].id : UI[k].en;
+const U = k => T(UI[k]), msg = k => lang === "id" ? UI[k].id + "\n" + UI[k].en : UI[k].en, plain = k => lang === "id" ? UI[k].id : UI[k].en;
 const send = items => api("submit", { lessonId: L.id, lessonTitle: L.title, name: S.name, cls: S.cls, plan: lessonPlan(L), items }).catch(() => {});
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const COL = ["#E8832A", "#3FA535", "#1B4F9C", "#C2398B", "#00A3A3", "#8A5CF6", "#D4A017", "#E0483E"];
@@ -335,8 +335,19 @@ async function init() {
   if (!LID) { shell(`<div class="card"><h2>Invalid link</h2></div>`); return; }
   const c = localStorage.getItem("lesson_" + LID);
   if (c) { L = JSON.parse(c); sessionStorage.setItem("robotStudentLesson", c); prep(); begin(); fetchLesson().catch(() => {}); return; }
-  shell(`<div class="card"><h2>⏳ ${U("load")}</h2></div>`);
-  try { await fetchLesson(); begin(); } catch (e) { shell(`<div class="card"><h2>${U("err")}</h2></div>`); }
+  // Belum ada cache (kunjungan pertama): tampilkan form nama/kelas SEKARANG, lesson dimuat di latar belakang
+  const pending = fetchLesson();
+  const saved = S && S.lesson === LID && S.name;
+  if (!saved) shell(`<div class="card login"><h1>⏳</h1><p>${U("load")}</p>
+    <input id="n" data-ph="name" placeholder="${esc(plain("name"))}"><select id="k"><option value="" data-ph="cls">${esc(plain("cls"))}</option>${CLASSES.map(c => `<option>${c}</option>`).join("")}</select><button id="go" disabled>…</button></div>`, true);
+  else shell(`<div class="card"><h2>⏳ ${U("load")}</h2></div>`, true);
+  try {
+    await pending;
+    const n0 = document.getElementById("n"), k0 = document.getElementById("k"), nv = n0 ? n0.value : "", kv = k0 ? k0.value : "";
+    begin();
+    const n1 = document.getElementById("n"), k1 = document.getElementById("k");
+    if (n1 && nv) n1.value = nv; if (k1 && kv) k1.value = kv;
+  } catch (e) { shell(`<div class="card"><h2>${U("err")}</h2></div>`); }
 }
 // ---- progress tersimpan di browser (per murid: nama + kelas) ----
 const cidOf = (c, i) => c.cid || "i" + i;
@@ -373,7 +384,7 @@ function showHub() {
   const st = L.challenges.map(stat), n = L.challenges.length, got = st.filter(x => x.done).length;
   const lockedAt = i => !!L.lockOrder && st.slice(0, i).some(x => !x.done);
   const nextI = L.challenges.findIndex((_, k) => !st[k].done && !lockedAt(k));
-  shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div><button class="lo" id="lo" type="button">↩ ${plain("sw")}</button></div>
+  shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div><button class="lo" id="lo" type="button">↩ ${esc(plain("sw"))}</button></div>
     <div class="mascot"><span>🤖</span><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => { const lk = lockedAt(i); return `<button class="node c${i % 3}${i === nextI ? " next" : ""}${lk ? " locked" : ""}" data-i="${i}"><span>${lk ? "🔒" : st[i].done ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}<small>${st[i].txt}</small></button>`; }).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
   document.getElementById("lo").onclick = () => { S = null; localStorage.removeItem("robotStudent"); sessionStorage.removeItem("robotStudent"); showLogin(); };
   app.querySelectorAll(".node").forEach(b => b.onclick = () => {
@@ -401,8 +412,8 @@ function startQuiz(ci) {
   const draw = () => {
     view = null; const q = Q[qi], ty = TYPES[q.type] || TYPES.choice, last = qi === Q.length - 1; let locked = false;
     let tries = Math.min(PR.tries[qi] || 0, max - 1);
-    const left = () => max > 1 ? `<span class="tries">🎯 ${U("chances")}: ${max - tries}/${max}</span>` : "";
-    shell(`<div class="steps"><button class="back" id="bk">←</button>${Q.map((_, k) => `<i class="${k < qi ? "ok" : k === qi ? "cur" : ""}">${k < qi ? "✓" : k + 1}</i>`).join("")}<span class="st">⭐ ${stars()}</span><span id="tr2">${left()}</span></div>
+    const left = () => max > 1 ? `<span class="tries">🎯 ${esc(plain("chances"))}: ${max - tries}/${max}</span>` : "";
+    shell(`<div class="steps"><button class="back" id="bk">←</button>${Q.map((_, k) => `<i class="${k < qi ? "ok" : k === qi ? "cur" : ""}">${k < qi ? "✓" : k + 1}</i>`).join("")}<span class="st">⭐ ${stars()}</span></div><div class="trow" id="tr2">${left()}</div>
       <div class="qa">${q.img || !ty.own ? `<div class="card q">${q.img ? `<img src="${esc(q.img)}">` : ""}${ty.own ? "" : `<h2>${T(q.q)}</h2>`}</div>` : ""}
       <div class="card" id="area">${ty.draw(q)}</div></div><div id="fb"></div><button class="go" id="go">${U("check")}</button>`, true);
     const area = document.getElementById("area"), h = ty.bind(area, q), go = document.getElementById("go"), fb = document.getElementById("fb");

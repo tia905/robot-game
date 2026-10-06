@@ -24,8 +24,11 @@ async function autoTranslate(lesson, key) {
     // ___ (kotak isian dropdown) dilindungi supaya tidak rusak saat diterjemahkan
     const src = todo.map(o => { let n = 0; return o.en.replace(/___/g, () => "[" + (++n) + "]"); });
     let done = 0, failed = 0;
-    for (let i = 0; i < todo.length; i += 40) {
-        const r = await api("translate", { key: key, texts: src.slice(i, i + 40) });
+    const jobs = [];
+    for (let i = 0; i < todo.length; i += 12) jobs.push(i);   // batch kecil dikirim PARALEL = jauh lebih cepat
+    const results = await Promise.all(jobs.map(i => api("translate", { key: key, texts: src.slice(i, i + 12) })));
+    results.forEach((r, j) => {
+        const i = jobs[j];
         if (!r.ok || !Array.isArray(r.texts)) throw new Error(r.error || "Apps Script belum di-deploy ulang (aksi translate belum dikenali)");
         r.texts.forEach((t, k) => {
             const o = todo[i + k];
@@ -34,7 +37,7 @@ async function autoTranslate(lesson, key) {
             if (!t.trim() || want !== got) { failed++; return; }
             o.id = t; o.auto = o.en; done++;
         });
-    }
+    });
     sessionStorage.setItem("adminKey", key);
     return { done: done, failed: failed };
 }

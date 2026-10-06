@@ -3,11 +3,22 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxLjKQYA-EKPJV2LGnPg1SW
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/14cX5ApZxgmDHWYca7CIxRctj7Sf4FRCmkHS0Jt9COks/edit?usp=sharing";
 
 async function api(action, data) {
-    const r = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify(Object.assign({ action: action }, data))
-    });
-    return r.json();
+    const body = JSON.stringify(Object.assign({ action: action }, data));
+    // submit jawaban: coba ulang otomatis kalau jaringan/server sedang sibuk (murid tidak menunggu)
+    const tries = action === "submit" ? 4 : 1;
+    let err;
+    for (let i = 0; i < tries; i++) {
+        try {
+            const r = await fetch(API_URL, { method: "POST", body: body });
+            const j = await r.json();
+            if (j && j.ok === false && action === "submit" && i < tries - 1) throw new Error("retry");
+            return j;
+        } catch (e) {
+            err = e;
+            if (i < tries - 1) await new Promise(function (ok) { setTimeout(ok, 1500 * (i + 1)); });
+        }
+    }
+    throw err;
 }
 
 async function apiGet(action, params) {

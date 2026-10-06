@@ -34,6 +34,12 @@ function t_(v) { v = String(v == null ? "" : v); return /^[=+\-@]/.test(v) ? "'"
 
 // Migrasi sekali: sheet "Jawaban" format lama (kolom H = "pertanyaan") -> jadi Log
 function migrate_() {
+  var cache = CacheService.getScriptCache();
+  if (cache.get("migrated")) return;
+  migrate2_();
+  cache.put("migrated", "1", 21600);
+}
+function migrate2_() {
   var old = ss_().getSheetByName(REKAP);
   if (!old || old.getLastColumn() < 8) return;
   if (String(old.getRange(1, 8).getValue()) !== "pertanyaan") return;
@@ -53,12 +59,27 @@ function fixLogHeader_() {
   if (lg && lg.getLastRow() >= 1 && String(lg.getRange(1, 12).getValue()) === "") lg.getRange(1, 12).setValue("percobaan");
 }
 
+// Lesson di-cache 6 jam supaya murid membuka lesson dengan cepat (tanpa membaca Sheet).
+function getLessonJson_(id) {
+  var cache = CacheService.getScriptCache(), hit = cache.get("lesson_" + id);
+  if (hit) return hit;
+  var s = sheet_("Lessons", ["id", "title", "json", "updated"]), n = s.getLastRow();
+  if (n < 2) return null;
+  var ids = s.getRange(2, 1, n - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(id)) {
+      var json = String(s.getRange(i + 2, 3).getValue());
+      try { if (json.length < 90000) cache.put("lesson_" + id, json, 21600); } catch (err) {}
+      return json;
+    }
+  }
+  return null;
+}
+
 function doGet(e) {
   if (e.parameter.action === "getLesson") {
-    var r = sheet_("Lessons", ["id", "title", "json", "updated"]).getDataRange().getValues();
-    for (var i = 1; i < r.length; i++) {
-      if (String(r[i][0]) === e.parameter.id) return out_({ ok: true, lesson: JSON.parse(r[i][2]) });
-    }
+    var json = getLessonJson_(e.parameter.id);
+    if (json) return out_({ ok: true, lesson: JSON.parse(json) });
     return out_({ ok: false, error: "Lesson tidak ditemukan" });
   }
   return out_({ ok: true });
@@ -92,12 +113,27 @@ function colKey_(it) {
   var game = it.kind ? it.kind === "game" : it.status === "selesai";
   return game ? L + SEP + "L" + it.no + (it.bonus ? " ⭐" : "") : L + SEP + "#" + it.no;
 }
+// Isi sel dibuat SINGKAT. Jawaban lengkap ada di catatan sel (arahkan kursor ke sel / klik kanan > lihat catatan)
+// dan di sheet "Log".
+var OK_BG = "#d9f2d6", NO_BG = "#fbd9d6", TXT_BG = "#fff4d6";
 function cell_(it) {
-  var a = String(it.answer == null ? "" : it.answer);
-  var n = Number(it.attempt) > 1 ? " (" + it.attempt + "x)" : "";
-  if (it.status === "benar") return a + "  ✔" + n;
-  if (it.status === "salah") return a + "  ✘" + n;
-  return a;
+  var a = String(it.answer == null ? "" : it.answer), n = Number(it.attempt) > 1 ? " (" + it.attempt + "x)" : "";
+  var kind = it.kind ? it.kind : (it.status === "selesai" ? "game" : "quiz");
+  if (kind === "game") {
+    var m = a.match(/(\d+)\s*blok/i);
+    return { v: "✔" + (m ? " " + m[1] + " blok" : ""), note: a, bg: OK_BG };
+  }
+  if (it.status === "benar") return { v: "✔" + n, note: "Jawaban: " + a, bg: OK_BG };
+  if (it.status === "salah") return { v: "✘" + n, note: "Jawaban: " + a, bg: NO_BG };
+  // uraian / isian tanpa kunci: tampilkan awalnya saja, perlu dicek manual
+  return { v: a.length > 40 ? a.slice(0, 40) + "…" : a, note: a, bg: TXT_BG };
+}
+function bgOf_(v) {
+  v = String(v == null ? "" : v);
+  if (!v) return null;
+  if (/✔(\s*\(\d+x\))?\s*$/.test(v) || /^✔/.test(v)) return OK_BG;
+  if (/✘(\s*\(\d+x\))?\s*$/.test(v)) return NO_BG;
+  return TXT_BG;
 }
 function groupOf_(h) {
   var p = String(h).split(SEP);
@@ -127,6 +163,11 @@ function ensureCols_(s, wanted) {
   if (oldW > head.length) s.getRange(1, head.length + 1, Math.max(lastRow, 1), oldW - head.length).clearContent();
   s.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight("bold");
   if (data.length) s.getRange(2, 1, data.length, head.length).setValues(data);
+  missing.forEach(function (name) {
+    var g = groupOf_(name), c = head.indexOf(name) + 1;
+    s.setColumnWidth(c, g && /^(#|L)\d+/.test(g.col) ? 84 : 96);
+  });
+  s.setFrozenColumns(FIX_N);
   return head;
 }
 // Hitung ulang ringkasan nilai dari isi sel (per quiz & per game)
@@ -167,20 +208,24 @@ function upsertRekap_(d) {
   var s = sheet_(REKAP, FIX_H);
   var wanted = wantedCols_(d.plan);
   d.items.forEach(function (it) { wanted.push(colKey_(it)); });
-  var head = ensureCols_(s, wanted), W = head.length;
-  var data = s.getLastRow() > 1 ? s.getRange(2, 1, s.getLastRow() - 1, W).getValues() : [];
+  var head = ensureCols_(s, wanted), W = head.length, n = s.getLastRow();
   var lid = String(d.lessonId), nm = String(d.name || "").trim(), kl = String(d.cls || "").trim();
-  var row = -1;
-  for (var i = 0; i < data.length; i++) {
-    if (String(data[i][1]) === lid && String(data[i][3]).trim().toLowerCase() === nm.toLowerCase() && String(data[i][4]).trim() === kl) { row = i; break; }
+  // cari baris murid dengan membaca kolom identitas saja (cepat)
+  var rowNum = -1;
+  if (n > 1) {
+    var idc = s.getRange(2, 2, n - 1, 4).getValues();
+    for (var i = 0; i < idc.length; i++) {
+      if (String(idc[i][0]) === lid && String(idc[i][2]).trim().toLowerCase() === nm.toLowerCase() && String(idc[i][3]).trim() === kl) { rowNum = i + 2; break; }
+    }
   }
-  var cur = row >= 0 ? data[row].slice() : [];
+  var cur = rowNum > 0 ? s.getRange(rowNum, 1, 1, W).getValues()[0] : [];
   while (cur.length < W) cur.push("");
-  if (row < 0) { cur[1] = t_(lid); cur[2] = t_(d.lessonTitle); cur[3] = t_(nm); cur[4] = t_(kl); }
+  if (rowNum < 0) { cur[1] = t_(lid); cur[2] = t_(d.lessonTitle); cur[3] = t_(nm); cur[4] = t_(kl); }
   cur[0] = new Date();
-  d.items.forEach(function (it) { cur[head.indexOf(colKey_(it))] = t_(cell_(it)); });
+  var cells = d.items.map(function (it) { var c = cell_(it); cur[head.indexOf(colKey_(it))] = t_(c.v); return { col: head.indexOf(colKey_(it)) + 1, c: c }; });
   recompute_(head, cur);
-  if (row < 0) s.appendRow(cur); else s.getRange(row + 2, 1, 1, W).setValues([cur]);
+  if (rowNum < 0) { s.appendRow(cur); rowNum = s.getLastRow(); } else s.getRange(rowNum, 1, 1, W).setValues([cur]);
+  cells.forEach(function (x) { s.getRange(rowNum, x.col).setNote(x.c.note).setBackground(x.c.bg); });
 }
 
 // Dipanggil otomatis saat guru mengedit sel di sheet "Jawaban" (mis. mengetik ✔ / ✘ untuk nilai manual)
@@ -192,6 +237,10 @@ function onEdit(e) {
     for (var r = e.range.getRow(); r <= e.range.getLastRow(); r++) {
       var rg = s.getRange(r, 1, 1, W), row = rg.getValues()[0];
       recompute_(head, row); rg.setValues([row]);
+      for (var c = Math.max(e.range.getColumn(), FIX_N + 1); c <= e.range.getLastColumn(); c++) {
+        var g = groupOf_(head[c - 1]);
+        if (g && /^(#\d+|L\d+)/.test(g.col)) s.getRange(r, c).setBackground(bgOf_(row[c - 1]));
+      }
     }
   } catch (err) {}
 }
@@ -216,10 +265,12 @@ function doPost(e) {
     for (var i = 1; i < r.length; i++) {
       if (String(r[i][0]) === String(d.lesson.id)) {
         s.getRange(i + 1, 1, 1, 4).setValues([row]);
+        CacheService.getScriptCache().remove("lesson_" + d.lesson.id);
         return out_({ ok: true });
       }
     }
     s.appendRow(row);
+    CacheService.getScriptCache().remove("lesson_" + d.lesson.id);
     return out_({ ok: true });
   }
   if (d.action === "upload") {
@@ -246,7 +297,7 @@ function doPost(e) {
   }
   if (d.action === "submit") {
     var lock = LockService.getScriptLock();
-    lock.waitLock(20000);
+    lock.waitLock(30000);
     try {
       migrate_(); fixLogHeader_();
       var lg = sheet_(LOG, LOG_H), now = new Date();
