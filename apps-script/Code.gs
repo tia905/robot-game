@@ -49,6 +49,14 @@ function doPost(e) {
     f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return out_({ ok: true, url: "https://drive.google.com/thumbnail?id=" + f.getId() + "&sz=w1000" });
   }
+  if (d.action === "translate") {
+    // Terjemahan otomatis EN -> ID (Google Translate bawaan Apps Script, gratis)
+    if (!admin_(d.key)) return out_({ ok: false, error: "Kunci admin salah" });
+    var res = (d.texts || []).slice(0, 60).map(function (t) {
+      try { return t ? LanguageApp.translate(String(t), "en", "id") : ""; } catch (err) { return ""; }
+    });
+    return out_({ ok: true, texts: res });
+  }
   if (d.action === "submit") {
     var s2 = sheet_("Results", ["waktu", "lesson_id", "lesson", "nama", "kelas", "challenge", "pertanyaan", "jawaban"]);
     d.items.forEach(function (it) {

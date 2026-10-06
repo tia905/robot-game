@@ -28,6 +28,7 @@ async function publish(l) {
     if (!l.challenges || !l.challenges.length) l.challenges = [{ type: "game", title: "Game" }];
     l.status = "published";
     try {
+        try { await autoTranslate(l, key); } catch (e) { console.warn("Auto-translate skipped:", e.message); }
         const r = await api("saveLesson", { key: key, lesson: l });
         if (!r.ok) throw new Error(r.error);
         sessionStorage.setItem("adminKey", key);

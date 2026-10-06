@@ -14,7 +14,8 @@ header b{flex:1;font-size:20px}
 main{max-width:960px;margin:0 auto;padding:18px}
 button{font-family:inherit;border:0;border-radius:16px;padding:10px 18px;font-size:18px;font-weight:700;cursor:pointer;color:#fff;background:var(--b);box-shadow:0 4px 0 #0f2f6b55}
 button:active{transform:translateY(3px);box-shadow:none}
-.lang button{padding:3px 12px;font-size:15px;margin-left:6px;background:#e6edfa;color:var(--b);box-shadow:none}.lang .on{background:var(--b);color:#fff}
+.idt{padding:5px 16px;font-size:18px;background:#fff;color:var(--n);border:3px solid var(--n);box-shadow:none}.idt.on{background:#e6f7e3}
+body:not(.id-on) .tr{display:none}
 .card{background:#fff;border-radius:24px;padding:22px;box-shadow:0 5px 0 #0f2f6b18}
 h1,h2{margin:0 0 8px}small{display:block;opacity:.65;font-weight:500;font-size:.72em}
 input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px solid #cfdcf3;border-radius:14px;width:100%;margin:6px 0 12px;background:#fff;color:var(--n)}
@@ -55,7 +56,8 @@ let S = JSON.parse(sessionStorage.getItem("robotStudent") || "null"), L = null, 
 const save = () => sessionStorage.setItem("robotStudent", JSON.stringify(S));
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const raw = o => (o && (o.en || o.id)) || "";
-const T = o => { if (!o) return ""; if (typeof o === "string") return esc(o); const en = o.en || "", id = o.id || ""; return lang === "id" && id ? `${esc(id)}<small>${esc(en)}</small>` : esc(en || id); };
+// English selalu jadi teks utama; terjemahan Indonesia ada di bawahnya (disembunyikan sampai tombol ID ditekan)
+const T = o => { if (!o) return ""; if (typeof o === "string") return esc(o); const en = o.en || "", id = o.id || ""; return en && id ? `${esc(en)}<small class="tr">${esc(id)}</small>` : esc(en || id); };
 const UI = {
   start: { en: "START", id: "MULAI" }, name: { en: "Your name", id: "Nama kamu" }, cls: { en: "Choose your class", id: "Pilih kelas" },
   hello: { en: "Hello", id: "Halo" }, check: { en: "CHECK", id: "PERIKSA" }, next: { en: "NEXT", id: "LANJUT" }, finish: { en: "FINISH", id: "SELESAI" },
@@ -64,7 +66,7 @@ const UI = {
   type: { en: "Type your answer", id: "Ketik jawabanmu" }, fill: { en: "Fill in your name and class first.", id: "Isi nama dan kelas dulu ya." },
   err: { en: "Lesson not found. Ask your teacher for a new link.", id: "Lesson tidak ditemukan. Minta link baru ke gurumu." }, load: { en: "Loading...", id: "Memuat..." }
 };
-const U = k => T(UI[k]), msg = k => lang === "id" ? UI[k].id + "\n" + UI[k].en : UI[k].en, plain = k => lang === "id" ? UI[k].id : UI[k].en;
+const U = k => T(UI[k]), msg = k => lang === "id" ? UI[k].id + "\n" + UI[k].en : UI[k].en, plain = k => lang === "id" ? UI[k].en + " / " + UI[k].id : UI[k].en;
 const send = items => api("submit", { lessonId: L.id, lessonTitle: L.title, name: S.name, cls: S.cls, items }).catch(() => {});
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const COL = ["#E8832A", "#3FA535", "#1B4F9C", "#C2398B", "#00A3A3", "#8A5CF6", "#D4A017", "#E0483E"];
@@ -87,7 +89,7 @@ const TYPES = {
     }
   },
   text: {
-    draw: () => `<input class="ti" placeholder="${esc(plain("type"))}">`,
+    draw: () => `<input class="ti" data-ph="type" placeholder="${esc(plain("type"))}">`,
     bind: (r, q) => {
       const i = r.querySelector(".ti"), acc = (q.answers || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
       return { get: () => ({ done: !!i.value.trim(), ok: acc.length ? acc.includes(i.value.trim().toLowerCase()) : null, text: i.value.trim() }), show: () => { i.disabled = true; } };
@@ -97,8 +99,8 @@ const TYPES = {
     own: 1,
     draw: q => {
       q._sh = q.blanks.map(b => shuffle(b.opts.split(",").map(s => s.trim()).filter(Boolean))); let n = 0;
-      const idm = lang === "id" && q.q.id, main = idm ? q.q.id : q.q.en || q.q.id, sub = idm ? q.q.en : "";
-      return `<h2 class="dp">${esc(main).replace(/___/g, () => `<select><option value="">?</option>${(q._sh[n++] || []).map(o => `<option>${esc(o)}</option>`).join("")}</select>`)}</h2>${sub ? `<small>${esc(sub).replace(/___/g, "____")}</small>` : ""}`;
+      const main = q.q.en || q.q.id, sub = q.q.en && q.q.id ? q.q.id : "";
+      return `<h2 class="dp">${esc(main).replace(/___/g, () => `<select><option value="">?</option>${(q._sh[n++] || []).map(o => `<option>${esc(o)}</option>`).join("")}</select>`)}</h2>${sub ? `<small class="tr">${esc(sub).replace(/___/g, "____")}</small>` : ""}`;
     },
     bind: (r, q) => {
       const ss = [...r.querySelectorAll("select")], key = i => q.blanks[i].opts.split(",")[0].trim();
@@ -150,9 +152,16 @@ const TYPES = {
   }
 };
 
+function applyLang() {
+  const on = lang === "id";
+  document.body.classList.toggle("id-on", on);
+  document.querySelectorAll(".idt").forEach(b => { b.textContent = on ? "ID ✓" : "ID"; b.classList.toggle("on", on); });
+  document.querySelectorAll("[data-ph]").forEach(e => { const t = plain(e.dataset.ph); if (e.tagName === "OPTION") e.textContent = t; else e.placeholder = t; });
+}
 function shell(inner, lg) {
-  app.innerHTML = `<header><b>Robot Coding Game</b>${lg ? `<span class="lang"><button data-l="en" class="${lang === "en" ? "on" : ""}">EN</button><button data-l="id" class="${lang === "id" ? "on" : ""}">ID</button></span>` : ""}</header><main>${inner}</main>`;
-  app.querySelectorAll("[data-l]").forEach(b => b.onclick = () => { lang = b.dataset.l; localStorage.setItem("robotLang", lang); view && view(); });
+  app.innerHTML = `<header><b>Robot Coding Game</b>${lg ? `<button class="idt" type="button"></button>` : ""}</header><main>${inner}</main>`;
+  app.querySelectorAll(".idt").forEach(b => b.onclick = () => { lang = lang === "id" ? "en" : "id"; localStorage.setItem("robotLang", lang); applyLang(); });
+  applyLang();
 }
 
 function prep() {
@@ -178,7 +187,7 @@ function begin() {
 function showLogin() {
   view = showLogin;
   shell(`<div class="card login"><h1>${esc(L.title)}</h1><p>${esc(L.description || "")}</p>
-    <input id="n" placeholder="${esc(plain("name"))}"><select id="k"><option value="">${esc(plain("cls"))}</option>${CLASSES.map(c => `<option>${c}</option>`).join("")}</select><button id="go">${U("start")}</button></div>`, true);
+    <input id="n" data-ph="name" placeholder="${esc(plain("name"))}"><select id="k"><option value="" data-ph="cls">${esc(plain("cls"))}</option>${CLASSES.map(c => `<option>${c}</option>`).join("")}</select><button id="go">${U("start")}</button></div>`, true);
   document.getElementById("go").onclick = () => {
     const n = document.getElementById("n").value.trim(), k = document.getElementById("k").value;
     if (!n || !k) { alert(msg("fill")); return; }
@@ -187,7 +196,7 @@ function showLogin() {
 }
 function showHub() {
   view = showHub; const d = S.done, n = L.challenges.length, got = L.challenges.filter((_, i) => d[i]).length;
-  shell(`<div class="card"><h1>${U("hello")}, ${esc(S.name)}! 👋</h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div></div>
+  shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div></div>
     <div class="path">${L.challenges.map((c, i) => `<button class="node c${i % 3}" data-i="${i}"><span>${d[i] ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}</button>`).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
   app.querySelectorAll(".node").forEach(b => b.onclick = () => {
     const i = +b.dataset.i, c = L.challenges[i];
@@ -200,7 +209,7 @@ function startQuiz(ci) {
     view = null; const q = Q[qi], ty = TYPES[q.type] || TYPES.choice, last = qi === Q.length - 1; let locked = false;
     shell(`<div class="steps"><button class="back" id="bk">←</button>${Q.map((_, k) => `<i class="${k < qi ? "ok" : k === qi ? "cur" : ""}">${k < qi ? "✓" : k + 1}</i>`).join("")}<span class="st">⭐ ${stars}</span></div>
       <div class="qa">${q.img || !ty.own ? `<div class="card q">${q.img ? `<img src="${esc(q.img)}">` : ""}${ty.own ? "" : `<h2>${T(q.q)}</h2>`}</div>` : ""}
-      <div class="card" id="area">${ty.draw(q)}</div></div><div id="fb"></div><button class="go" id="go">${U("check")}</button>`, false);
+      <div class="card" id="area">${ty.draw(q)}</div></div><div id="fb"></div><button class="go" id="go">${U("check")}</button>`, true);
     const area = document.getElementById("area"), h = ty.bind(area, q), go = document.getElementById("go"), fb = document.getElementById("fb");
     document.getElementById("bk").onclick = showHub;
     go.onclick = () => {

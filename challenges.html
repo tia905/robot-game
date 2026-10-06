@@ -26,13 +26,18 @@ img{max-height:56px;border-radius:6px}
 .tag{background:var(--o);color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
 .hint{color:#5b6b8c;font-size:13px;margin:4px 0}
 .ck{font-weight:700;color:var(--g)}
+input.auto{background:#eefbea;border-color:#b7e2b0}
+.addrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:10px;border:2px dashed #b9c9e8;border-radius:12px}
+.addrow b{font-size:13px}.addrow button{background:var(--g);padding:6px 10px;font-size:13px}
+.dup{background:#6b7fa8;padding:6px 10px}.cnt{font-weight:700;color:#5b6b8c;font-size:13px}
 </style>
 </head>
 <body>
-<div class="top"><a href="admin.html">← Back</a><h2 id="t"></h2><button class="main" id="save">SAVE</button></div>
+<div class="top"><a href="admin.html">← Back</a><h2 id="t"></h2><button class="add" id="tr">🌐 Translate</button><button class="main" id="save">SAVE</button></div>
 <div class="w"><div id="list"></div>
   <div class="row"><button class="add" data-a="addgame">+ Game</button><button class="add" data-a="addquiz">+ Quiz / Exit Ticket</button></div></div>
 <script src="api.js"></script>
+<script src="translate.js"></script>
 <script>
 const id = new URLSearchParams(location.search).get("lesson");
 const lessons = JSON.parse(localStorage.getItem("robotLessons")) || [];
@@ -56,13 +61,14 @@ C.forEach(c => { if (c.type === "quiz") c.questions = c.questions.map(norm); });
 const walk = a => a.reduce((o, k) => o[k], C);
 const setPath = (p, v) => { const a = p.split("."), k = a.pop(); walk(a)[k] = v; };
 
-const bi = (p, o, ph) => `<div class="bi"><input type="text" data-p="${p}.en" value="${esc(o.en)}" placeholder="${ph} — English"><input type="text" data-p="${p}.id" value="${esc(o.id)}" placeholder="${ph} — Indonesia"></div>`;
+const bi = (p, o, ph) => `<div class="bi"><input type="text" data-p="${p}.en" value="${esc(o.en)}" placeholder="${ph} — English"><input type="text" class="${o.auto && o.auto === o.en ? "auto" : ""}" data-p="${p}.id" value="${esc(o.id)}" placeholder="🌐 Indonesia (auto)"></div>`;
 const pic = (p, u, lab) => `<label class="file">🖼 ${lab}<input type="file" accept="image/*" data-img="${p}"></label>${u ? `<img src="${esc(u)}"><button class="x" data-a="clrimg" data-p="${p}">×</button>` : ""}`;
 const del = p => `<button class="x" data-a="del" data-p="${p}">×</button>`;
 const add = (p, n, lab) => `<button class="add" data-a="push" data-p="${p}" data-n="${n}">+ ${lab}</button>`;
 
 function qForm(q, b) {
-  let h = `<div class="q"><div class="qh"><span class="tag">${TL[q.type]}</span>${del(b)}</div><div class="row">${bi(b + ".q", q.q, "Question")}</div><div class="row">${pic(b + ".img", q.img, "Picture")}</div>`;
+  const num = +b.split(".").pop() + 1;
+  let h = `<div class="q"><div class="qh"><span class="tag">Question ${num} · ${TL[q.type]}</span><span><button class="dup" data-a="dup" data-p="${b}">⧉ Duplicate</button> ${del(b)}</span></div><div class="row">${bi(b + ".q", q.q, "Question")}</div><div class="row">${pic(b + ".img", q.img, "Picture")}</div>`;
   if (q.type === "choice") h += q.options.map((o, k) => `<div class="row"><label class="ck"><input type="checkbox" data-p="${b}.options.${k}.ok" ${o.ok ? "checked" : ""}> ✔</label>${bi(`${b}.options.${k}.t`, o.t, "Option " + (k + 1))}${pic(`${b}.options.${k}.img`, o.img, "Pic")}${q.options.length > 2 ? del(`${b}.options.${k}`) : ""}</div>`).join("") + add(b + ".options", "opt", "Option") + `<p class="hint">Tick ✔ on every correct option (one ✔ = single answer, more = multi-select).</p>`;
   if (q.type === "text") h += `<input type="text" class="wide" data-p="${b}.answers" value="${esc(q.answers)}" placeholder="Accepted answers separated by commas. Leave empty = not graded (just recorded)">`;
   if (q.type === "dropdown") h += `<p class="hint">Write ___ (3 underscores) in the question for each blank. Then list the choices per blank: the FIRST is the correct one (students see them shuffled).</p>` + q.blanks.map((x, k) => `<div class="row"><b>Blank ${k + 1}</b><input type="text" data-p="${b}.blanks.${k}.opts" value="${esc(x.opts)}" placeholder="correct, wrong, wrong">${q.blanks.length > 1 ? del(`${b}.blanks.${k}`) : ""}</div>`).join("") + add(b + ".blanks", "blank", "Blank");
@@ -75,16 +81,21 @@ function qForm(q, b) {
 function render() {
   document.getElementById("t").textContent = LS.title;
   list.innerHTML = C.map((c, i) => `<div class="c"><div class="h"><b>${i + 1}. ${c.type === "game" ? "🎮" : "❓"}</b><input type="text" data-p="${i}.title" value="${esc(c.title)}">
+    ${c.type === "quiz" ? `<span class="cnt">${c.questions.length} question${c.questions.length === 1 ? "" : "s"}</span>` : ""}
     <button data-a="up" data-p="${i}">↑</button><button data-a="dn" data-p="${i}">↓</button><button class="x" data-a="delc" data-p="${i}">Delete</button></div>` +
     (c.type === "game" ? "<p>Students play the levels you built in the Level Editor.</p>" :
       c.questions.map((q, j) => qForm(q, `${i}.questions.${j}`)).join("") +
-      `<select class="addq" data-a="addq" data-p="${i}.questions"><option value="">+ Add question…</option>${Object.keys(TL).map(k => `<option value="${k}">${TL[k]}</option>`).join("")}</select>`) + "</div>").join("");
+      `<div class="addrow"><b>+ Add question:</b>${Object.keys(TL).map(k => `<button data-a="addq" data-p="${i}.questions" data-t="${k}">${TL[k]}</button>`).join("")}</div>` +
+      (c.questions.length < 2 ? `<p class="hint">💡 A quiz can have as many questions as you like. Students answer them one by one.</p>` : "")) + "</div>").join("");
 }
 
-list.addEventListener("input", e => { const t = e.target; if (t.dataset.p) setPath(t.dataset.p, t.type === "checkbox" ? t.checked : t.value); });
+list.addEventListener("input", e => {
+  const t = e.target; if (!t.dataset.p) return;
+  setPath(t.dataset.p, t.type === "checkbox" ? t.checked : t.value);
+  if (/\.id$/.test(t.dataset.p)) { const a = t.dataset.p.split("."); a.pop(); delete walk(a).auto; t.classList.remove("auto"); } // diedit manual → jangan ditimpa
+});
 list.addEventListener("change", async e => {
   const t = e.target;
-  if (t.dataset.a === "addq" && t.value) { walk(t.dataset.p.split(".")).push(D.q(t.value)); render(); return; }
   if (t.dataset.img && t.files[0]) { const u = await upload(t.files[0]); if (u) { setPath(t.dataset.img, u); render(); } }
 });
 document.body.addEventListener("click", e => {
@@ -99,6 +110,8 @@ document.body.addEventListener("click", e => {
     if (a === "delc" && confirm("Delete this challenge?")) C.splice(i, 1);
   }
   if (a === "push") walk(p.split(".")).push(D[b.dataset.n]());
+  if (a === "addq") walk(p.split(".")).push(D.q(b.dataset.t));
+  if (a === "dup") { const s = p.split("."), j = +s.pop(), arr = walk(s); arr.splice(j + 1, 0, JSON.parse(JSON.stringify(arr[j]))); }
   if (a === "del") { const s = p.split("."), i = +s.pop(); if (s.length > 2 || confirm("Delete this question?")) walk(s).splice(i, 1); }
   if (a === "clrimg") setPath(p, "");
   render();
@@ -121,10 +134,27 @@ function problem() {
   }
   return "";
 }
-document.getElementById("save").onclick = () => {
+async function doTranslate() {
+  const key = adminKey(); if (!key) return null;
+  return autoTranslate(LS, key);
+}
+document.getElementById("tr").onclick = async e => {
+  const b = e.target; b.disabled = true; b.textContent = "Translating…";
+  try { const r = await doTranslate(); render(); if (r) alert(r.done + " text(s) translated" + (r.failed ? ", " + r.failed + " skipped (please type those manually)" : "") + ".\nReview the green boxes, then press SAVE."); }
+  catch (err) { alert("Auto-translate failed: " + err.message); }
+  b.disabled = false; b.textContent = "🌐 Translate";
+};
+document.getElementById("save").onclick = async e => {
   const m = problem(); if (m) return alert(m);
+  const b = e.target; b.disabled = true; b.textContent = "Saving…";
+  let note = "";
+  try { const r = await doTranslate(); if (r && r.done) note = "\n" + r.done + " text(s) auto-translated to Indonesian."; if (r && r.failed) note += "\n" + r.failed + " could not be translated (type them manually)."; }
+  catch (err) { note = "\nAuto-translate failed (" + err.message + "). Saved in English only."; }
+  b.disabled = false; b.textContent = "SAVE";
+  const m2 = problem(); if (m2) { render(); return alert(m2); }
   localStorage.setItem("robotLessons", JSON.stringify(lessons));
-  alert("Saved. Click PUBLISH / RE-PUBLISH on the dashboard so students see the changes.");
+  render();
+  alert("Saved." + note + "\nClick PUBLISH / RE-PUBLISH on the dashboard so students see the changes.");
 };
 
 async function upload(file) {
