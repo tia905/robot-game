@@ -1961,7 +1961,7 @@ function updateGoal() {
         "none";
 
     goal.style.zIndex =
-        "10";
+        "7";
 
     goal.style.alignItems =
         "center";
@@ -4835,10 +4835,11 @@ if (isStudentMode) {
             persistProgress();
             if (!already) {
                 const n = (blockCounter.textContent.match(/\d+/) || [0])[0];
+                const plan = lessonPlan(selectedLesson), gp = plan.find(function (x) { return x.type === "game"; }) || { label: "Game" };
                 api("submit", {
                     lessonId: selectedLesson.id, lessonTitle: selectedLesson.title,
-                    name: st.name, cls: st.cls,
-                    items: [{ challenge: "Game", question: "Level " + currentLevel, answer: "Selesai, " + n + " blok", no: currentLevel, status: "selesai", score: 1, bonus: !!(lv && lv.bonus) }]
+                    name: st.name, cls: st.cls, plan: plan,
+                    items: [{ challenge: gp.label, kind: "game", question: "Level " + currentLevel, answer: "Selesai, " + n + " blok", no: currentLevel, status: "selesai", score: 1, bonus: !!(lv && lv.bonus) }]
                 }).catch(function () {});
             }
         }

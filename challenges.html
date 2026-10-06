@@ -24,6 +24,7 @@ select.addq{background:var(--g)}
 .file{background:#e6edfa;color:var(--b);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px}.file input{display:none}
 img{max-height:56px;border-radius:6px}
 .tag{background:var(--o);color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.att{background:#fff1e0;border:2px solid var(--o);border-radius:8px;padding:4px 8px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px}.att input{width:56px;flex:none;padding:4px 6px}.bi2{display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex:1;min-width:260px}
 .hint{color:#5b6b8c;font-size:13px;margin:4px 0}
 .ck{font-weight:700;color:var(--g)}
 input.auto{background:#eefbea;border-color:#b7e2b0}
@@ -53,18 +54,21 @@ LS.challenges = (LS.challenges || [{ type: "game", title: "Game" }]).filter(c =>
 const C = LS.challenges, list = document.getElementById("list");
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const raw = o => (o && (o.en || o.id)) || "";
-const TL = { choice: "🔘 Pilihan ganda", text: "⌨️ Isian singkat", dropdown: "🔽 Isi titik-titik", match: "🔗 Menjodohkan", order: "🔢 Mengurutkan" };
+const TL = { single: "🔘 Pilihan ganda (1 jawaban benar)", multi: "☑️ Pilih banyak (boleh lebih dari 1 benar)", text: "⌨️ Isian singkat", essay: "✍️ Uraian (dicek manual)", dropdown: "🔽 Isi titik-titik", match: "🔗 Menjodohkan (pakai garis)", order: "🔢 Mengurutkan", dragdrop: "🧲 Drag & drop (teks / gambar)" };
+const tagOf = q => q.type === "choice" ? TL[q.mode === "multi" ? "multi" : "single"] : TL[q.type];
 const E = () => ({ en: "", id: "" });
 const D = {
   opt: () => ({ t: E(), img: "", ok: false }), card: () => ({ t: E() }), pair: () => ({ l: E(), r: E() }), blank: () => ({ opts: "" }),
-  q: ty => Object.assign({ type: ty, q: E(), img: "" }, ty === "choice" ? { options: [D.opt(), D.opt()] } : ty === "text" ? { answers: "" } : ty === "dropdown" ? { blanks: [D.blank()] } : ty === "match" ? { pairs: [D.pair(), D.pair()] } : { cards: [D.card(), D.card()], extras: [] })
+  dpair: () => ({ l: { t: E(), img: "" }, r: { t: E(), img: "" } }), ditem: () => ({ t: E(), img: "" }),
+  q: ty => ty === "single" || ty === "multi" ? { type: "choice", mode: ty, q: E(), img: "", options: [D.opt(), D.opt()] } :
+    Object.assign({ type: ty, q: E(), img: "" }, ty === "text" ? { answers: "" } : ty === "essay" ? {} : ty === "dropdown" ? { blanks: [D.blank()] } : ty === "match" ? { pairs: [D.pair(), D.pair()] } : ty === "dragdrop" ? { pairs: [D.dpair(), D.dpair()], extras: [] } : { cards: [D.card(), D.card()], extras: [] })
 };
 function norm(q) {
   if (q.type) return q;
   return { type: "choice", q: { en: q.q || "", id: "" }, img: q.img || "", options: (q.options || []).map((o, k) => ({ t: { en: o.text || "", id: "" }, img: o.img || "", ok: k === q.correct })) };
 }
 const newId = () => Math.random().toString(36).slice(2, 8);
-C.forEach(c => { if (!c.cid) c.cid = newId(); if (c.type === "quiz") c.questions = c.questions.map(norm); });
+C.forEach(c => { if (!c.cid) c.cid = newId(); if (c.type === "quiz") { c.questions = c.questions.map(norm); if (!c.attempts) c.attempts = 1; c.questions.forEach(q => { if (q.type === "choice" && !q.mode) q.mode = q.options.filter(o => o.ok).length > 1 ? "multi" : "single"; }); } });
 const lockBox = document.getElementById("lock");
 lockBox.checked = !!LS.lockOrder;
 lockBox.onchange = () => { LS.lockOrder = lockBox.checked; };
@@ -77,20 +81,25 @@ const del = p => `<button class="x" data-a="del" data-p="${p}">×</button>`;
 const add = (p, n, lab) => `<button class="add" data-a="push" data-p="${p}" data-n="${n}">+ ${lab}</button>`;
 
 const HELP = {
-  choice: "<b>Cara membuat:</b> ① tulis pertanyaan di kotak paling atas ② tulis tiap pilihan jawaban ③ <b>centang ✔ pada jawaban yang BENAR</b> (boleh lebih dari satu). Tombol <i>+ Option</i> menambah pilihan.",
+  single: "<b>Cara membuat:</b> ① tulis pertanyaan ② tulis tiap pilihan (bisa pakai gambar) ③ <b>pilih ◉ satu jawaban yang BENAR</b>. Murid hanya bisa memilih 1 jawaban.",
+  multi: "<b>Cara membuat:</b> ① tulis pertanyaan ② tulis tiap pilihan ③ <b>centang ✔ semua jawaban yang BENAR</b> (boleh lebih dari satu). Murid harus memilih semuanya dengan tepat.",
+  essay: "<b>Cara membuat:</b> tulis pertanyaannya saja. Jawaban murid <b>tidak dinilai otomatis</b>, tapi tersimpan di Sheet dengan tanda <i>cek manual</i>. Kamu bisa menilainya sendiri dengan mengetik <b>✔</b> atau <b>✘</b> di akhir isi sel jawaban di Sheet (nilai langsung terhitung ulang).",
+  dragdrop: "<b>Cara membuat:</b> tiap baris = 1 kotak tujuan (kiri) + <b>jawaban yang benar</b> untuk kotak itu (kanan). Teks dan/atau gambar boleh dipakai di kiri maupun kanan. Murid menyeret kartu jawaban (teks atau gambar) ke kotak yang tepat. <i>Kartu pengecoh</i> = jawaban salah tambahan (opsional).",
   text: "<b>Cara membuat:</b> ① tulis pertanyaan ② di kotak bawah tulis <b>jawaban yang benar</b>. Kalau ada beberapa jawaban yang boleh, pisahkan dengan koma (contoh: <i>kucing, cat</i>). Dikosongkan = tidak dinilai, hanya dicatat.",
   dropdown: "<b>Cara membuat:</b> ① tulis kalimat, ganti bagian yang dikosongkan dengan <b>___</b> (3 garis bawah) ② isi pilihan tiap kotak, dipisah koma. <b>Pilihan PERTAMA = jawaban benar</b> (murid melihatnya diacak).",
-  match: "<b>Cara membuat:</b> ① tulis perintah soal ② isi pasangan satu baris satu: kiri ↔ kanan. <b>Pasangan yang kamu tulis = jawaban benar</b> (murid melihatnya diacak).",
+  match: "<b>Cara membuat:</b> ① tulis perintah soal ② isi pasangan satu baris satu: kiri ↔ kanan. <b>Pasangan yang kamu tulis = jawaban benar</b> (murid melihatnya diacak). Murid menyambungkan pasangan dengan <b>garis</b> (tarik dari kiri ke kanan atau tap kiri lalu kanan).",
   order: "<b>Cara membuat:</b> ① tulis perintah soal ② tulis kartu sesuai <b>URUTAN YANG BENAR</b> dari atas ke bawah (murid melihatnya diacak). Kartu tambahan = pengecoh (opsional)."
 };
-function qForm(q, b) { return qForm0(q, b).replace('<div class="row">', `<div class="help">${HELP[q.type] || ""}</div><div class="row">`).replace("> ✔</label>", "> ✔ benar</label>"); }
+function qForm(q, b) { return qForm0(q, b).replace('<div class="row">', `<div class="help">${HELP[q.type === "choice" ? (q.mode === "multi" ? "multi" : "single") : q.type] || ""}</div><div class="row">`).replace(/> ✔<\/label>/g, "> benar</label>"); }
 function qForm0(q, b) {
   const num = +b.split(".").pop() + 1;
-  let h = `<div class="q"><div class="qh"><span class="tag">Question ${num} · ${TL[q.type]}</span><span><button class="dup" data-a="dup" data-p="${b}">⧉ Duplicate</button> ${del(b)}</span></div><div class="row">${bi(b + ".q", q.q, "Question")}</div><div class="row">${pic(b + ".img", q.img, "Picture")}</div>`;
-  if (q.type === "choice") h += q.options.map((o, k) => `<div class="row"><label class="ck"><input type="checkbox" data-p="${b}.options.${k}.ok" ${o.ok ? "checked" : ""}> ✔</label>${bi(`${b}.options.${k}.t`, o.t, "Option " + (k + 1))}${pic(`${b}.options.${k}.img`, o.img, "Pic")}${q.options.length > 2 ? del(`${b}.options.${k}`) : ""}</div>`).join("") + add(b + ".options", "opt", "Option") + `<p class="hint">Tick ✔ on every correct option (one ✔ = single answer, more = multi-select).</p>`;
+  let h = `<div class="q"><div class="qh"><span class="tag">Question ${num} · ${tagOf(q)}</span><span><button class="dup" data-a="dup" data-p="${b}">⧉ Duplicate</button> ${del(b)}</span></div><div class="row">${bi(b + ".q", q.q, "Question")}</div><div class="row">${pic(b + ".img", q.img, "Picture")}</div>`;
+  if (q.type === "choice") h += q.options.map((o, k) => `<div class="row"><label class="ck"><input type="${q.mode === "multi" ? "checkbox" : "radio"}" ${q.mode === "multi" ? "" : `name="r${b}" data-single="${b}.options" data-k="${k}"`} data-p="${b}.options.${k}.ok" ${o.ok ? "checked" : ""}> ✔</label>${bi(`${b}.options.${k}.t`, o.t, "Option " + (k + 1))}${pic(`${b}.options.${k}.img`, o.img, "Pic")}${q.options.length > 2 ? del(`${b}.options.${k}`) : ""}</div>`).join("") + add(b + ".options", "opt", "Option") + `<p class="hint">${q.mode === "multi" ? "Tick ✔ on every correct option." : "Select the ONE correct option (students can only pick one)."}</p>`;
   if (q.type === "text") h += `<input type="text" class="wide" data-p="${b}.answers" value="${esc(q.answers)}" placeholder="Accepted answers separated by commas. Leave empty = not graded (just recorded)">`;
   if (q.type === "dropdown") h += `<p class="hint">Write ___ (3 underscores) in the question for each blank. Then list the choices per blank: the FIRST is the correct one (students see them shuffled).</p>` + q.blanks.map((x, k) => `<div class="row"><b>Blank ${k + 1}</b><input type="text" data-p="${b}.blanks.${k}.opts" value="${esc(x.opts)}" placeholder="correct, wrong, wrong">${q.blanks.length > 1 ? del(`${b}.blanks.${k}`) : ""}</div>`).join("") + add(b + ".blanks", "blank", "Blank");
   if (q.type === "match") h += q.pairs.map((p, k) => `<div class="row">${bi(`${b}.pairs.${k}.l`, p.l, "Left")}<span>↔</span>${bi(`${b}.pairs.${k}.r`, p.r, "Match")}${q.pairs.length > 2 ? del(`${b}.pairs.${k}`) : ""}</div>`).join("") + add(b + ".pairs", "pair", "Pair");
+  if (q.type === "dragdrop") h += `<p class="hint">Each row: drop box (left) ← correct card (right). Both sides can have text and/or a picture.</p>` + q.pairs.map((p, k) => `<div class="row"><b>${k + 1}</b><div class="bi2">${bi(`${b}.pairs.${k}.l.t`, p.l.t, "Drop box")}${pic(`${b}.pairs.${k}.l.img`, p.l.img, "Pic")}</div><span>⬅</span><div class="bi2">${bi(`${b}.pairs.${k}.r.t`, p.r.t, "Correct card")}${pic(`${b}.pairs.${k}.r.img`, p.r.img, "Pic")}</div>${q.pairs.length > 2 ? del(`${b}.pairs.${k}`) : ""}</div>`).join("") + add(b + ".pairs", "dpair", "Drop box") +
+    `<p class="hint">Extra cards (wrong ones, optional):</p>` + q.extras.map((c, k) => `<div class="row">${bi(`${b}.extras.${k}.t`, c.t, "Extra card")}${pic(`${b}.extras.${k}.img`, c.img, "Pic")}${del(`${b}.extras.${k}`)}</div>`).join("") + add(b + ".extras", "ditem", "Extra card");
   if (q.type === "order") h += `<p class="hint">Write the cards in the CORRECT order. Students can add their own answer boxes.</p>` + q.cards.map((c, k) => `<div class="row"><b>${k + 1}</b>${bi(`${b}.cards.${k}.t`, c.t, "Card")}${q.cards.length > 2 ? del(`${b}.cards.${k}`) : ""}</div>`).join("") + add(b + ".cards", "card", "Card") +
     `<p class="hint">Extra cards (wrong ones, optional):</p>` + q.extras.map((c, k) => `<div class="row">${bi(`${b}.extras.${k}.t`, c.t, "Extra card")}${del(`${b}.extras.${k}`)}</div>`).join("") + add(b + ".extras", "card", "Extra card");
   return h + "</div>";
@@ -99,7 +108,7 @@ function qForm0(q, b) {
 function render() {
   document.getElementById("t").textContent = LS.title;
   list.innerHTML = C.map((c, i) => `<div class="c"><div class="h"><b>${i + 1}. ${c.type === "game" ? "🎮" : "❓"}</b><input type="text" data-p="${i}.title" value="${esc(c.title)}">
-    ${c.type === "quiz" ? `<span class="cnt">${c.questions.length} question${c.questions.length === 1 ? "" : "s"}</span>` : ""}
+    ${c.type === "quiz" ? `<span class="cnt">${c.questions.length} question${c.questions.length === 1 ? "" : "s"}</span><label class="att">🎯 Kesempatan menjawab <input type="number" min="1" max="10" data-p="${i}.attempts" value="${esc(c.attempts || 1)}"> kali</label>` : ""}
     <button data-a="up" data-p="${i}" ${i === 0 ? "disabled" : ""}>⬆ Naik</button><button data-a="dn" data-p="${i}" ${i === C.length - 1 ? "disabled" : ""}>⬇ Turun</button><button class="x" data-a="delc" data-p="${i}">Delete</button></div>` +
     (c.type === "game" ? "<p>Students play the levels you built in the Level Editor.</p>" :
       c.questions.map((q, j) => qForm(q, `${i}.questions.${j}`)).join("") +
@@ -109,6 +118,7 @@ function render() {
 
 list.addEventListener("input", e => {
   const t = e.target; if (!t.dataset.p) return;
+  if (t.dataset.single !== undefined) { walk(t.dataset.single.split(".")).forEach((o, k) => { o.ok = k === +t.dataset.k; }); return; }
   setPath(t.dataset.p, t.type === "checkbox" ? t.checked : t.value);
   if (/\.id$/.test(t.dataset.p)) { const a = t.dataset.p.split("."); a.pop(); delete walk(a).auto; t.classList.remove("auto"); } // diedit manual → jangan ditimpa
 });
@@ -140,8 +150,13 @@ function problem() {
     if (!c.questions.length) return `"${c.title}" has no questions.`;
     for (const [j, q] of c.questions.entries()) {
       const w = `"${c.title}" question ${j + 1}: `, cnt = s => (s.match(/___/g) || []).length;
-      if (!raw(q.q).trim()) return w + "write the question.";
+      if (!raw(q.q).trim() && !q.img) return w + "write the question.";
       if (q.type === "choice" && (q.options.length < 2 || !q.options.some(o => o.ok))) return w + "needs 2+ options and at least 1 ticked correct.";
+      if (q.type === "choice" && q.options.some(o => !raw(o.t).trim() && !o.img)) return w + "every option needs text or a picture.";
+      if (q.type === "dragdrop") {
+        if (q.pairs.some(p => (!raw(p.l.t).trim() && !p.l.img) || (!raw(p.r.t).trim() && !p.r.img))) return w + "fill in every drop box and its correct card (text or picture).";
+        if (q.extras.some(x => !raw(x.t).trim() && !x.img)) return w + "fill in every extra card (text or picture).";
+      }
       if (q.type === "dropdown") {
         if (cnt(q.q.en) !== q.blanks.length || (q.q.id && cnt(q.q.id) !== q.blanks.length)) return w + `the number of ___ must equal the number of blank lists (${q.blanks.length}).`;
         if (q.blanks.some(x => x.opts.split(",").filter(s => s.trim()).length < 2)) return w + "each blank needs at least 2 choices.";

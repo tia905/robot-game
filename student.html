@@ -40,7 +40,19 @@ input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px sol
 .opt.sel{border-color:var(--b);background:#e8f0ff}.opt.sel b{background:var(--b)}
 .right{border-color:var(--g)!important;background:#e6f7e3!important}.wrong{border-color:#e0483e!important;background:#fdeceb!important}
 .dp{line-height:2.1}.dp select{width:auto;display:inline-block;margin:0 4px;padding:4px 8px}
-.mt{display:grid;grid-template-columns:1fr 1fr;gap:26px}.m{padding:12px;margin:8px 0;border:4px solid #dbe4f5;border-radius:16px;cursor:pointer;text-align:center;background:#fff}.m.sel{background:#fff1e0}
+.mx{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:start}.mx svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
+.m{position:relative;padding:12px;margin:8px 0;border:4px solid #dbe4f5;border-radius:16px;cursor:pointer;text-align:center;background:#fff;touch-action:none;user-select:none}.m.sel{background:#fff1e0;border-color:var(--o)}
+.m.l::after,.m.r::before{content:"";position:absolute;top:50%;width:18px;height:18px;border-radius:50%;background:#fff;border:4px solid #8a94a6;transform:translateY(-50%);z-index:4}.m.l::after{right:-13px}.m.r::before{left:-13px}
+.cd{touch-action:none;user-select:none;-webkit-user-select:none}.cd img{display:block;max-width:130px;max-height:80px;margin:0 auto 4px;border-radius:8px;pointer-events:none}
+.cd.dragging{opacity:.35}.cd.ghost{position:fixed;z-index:999;pointer-events:none;transform:translate(-50%,-50%) rotate(-3deg);box-shadow:0 8px 20px #0004;text-align:center}
+.pool{min-height:64px;padding:8px;border:3px dashed #e3d3b8;border-radius:16px;background:#fffdf8}
+.slot.wrong,.dz.wrong{border-color:#e0483e!important;background:#fdeceb!important}.dz.right{border-color:var(--g)!important;background:#e6f7e3!important}
+.dzs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:12px}
+.dz{padding:8px;border:3px dashed #9db4e0;border-radius:16px;min-height:120px;background:#fff;text-align:center}.dz.sel{border-color:var(--o);background:#fff6ea}
+.dzl{font-weight:800;margin-bottom:6px}.dzl img{display:block;max-width:100%;max-height:90px;margin:0 auto 4px;border-radius:8px}.dzb{min-height:52px;display:grid;place-items:center}.dzb .cd{margin:0}.ph{opacity:.35;font-size:26px}
+.fix{margin-top:6px;font-size:14px;font-weight:700;color:#2a7a22}.fix img{max-height:48px;display:block;margin:0 auto}
+.ta{font-family:inherit;font-size:18px;padding:10px 12px;border:3px solid #cfdcf3;border-radius:14px;width:100%;margin:6px 0}
+.tries{margin-left:10px;padding:3px 12px;background:#fff1e0;border:3px solid var(--o);border-radius:14px;font-weight:800;font-size:16px}
 .slots,.pool{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
 .slot{min-width:130px;min-height:70px;padding:6px;border:3px dashed #9db4e0;border-radius:16px;position:relative;cursor:pointer}.slot.sel{border-color:var(--o);background:#fff6ea}
 .slot small{position:absolute;top:2px;left:8px}
@@ -79,10 +91,11 @@ const UI = {
   err: { en: "Lesson not found. Ask your teacher for a new link.", id: "Lesson tidak ditemukan. Minta link baru ke gurumu." }, load: { en: "Loading...", id: "Memuat..." },
   locked: { en: "Finish the previous challenge first 🔒", id: "Selesaikan challenge sebelumnya dulu 🔒" },
   sw: { en: "Not you? Change name", id: "Bukan kamu? Ganti nama" }, retry: { en: "TRY AGAIN", id: "ULANGI" },
-  sure: { en: "Start this quiz again? Your old answers will be replaced.", id: "Ulangi quiz ini? Jawaban lama akan diganti." }, bonus: { en: "bonus", id: "bonus" }
+  sure: { en: "Start this quiz again? Your old answers will be replaced.", id: "Ulangi quiz ini? Jawaban lama akan diganti." },
+  retry2: { en: "Not quite. Try again! 💪", id: "Belum tepat. Coba lagi! 💪" }, chances: { en: "Chances left", id: "Sisa kesempatan" }, manual: { en: "Answer saved. Your teacher will check it ✅", id: "Jawaban tersimpan. Gurumu yang akan memeriksa ✅" }, bonus: { en: "bonus", id: "bonus" }
 };
 const U = k => T(UI[k]), msg = k => lang === "id" ? UI[k].id + "\n" + UI[k].en : UI[k].en, plain = k => lang === "id" ? UI[k].en + " / " + UI[k].id : UI[k].en;
-const send = items => api("submit", { lessonId: L.id, lessonTitle: L.title, name: S.name, cls: S.cls, items }).catch(() => {});
+const send = items => api("submit", { lessonId: L.id, lessonTitle: L.title, name: S.name, cls: S.cls, plan: lessonPlan(L), items }).catch(() => {});
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const COL = ["#E8832A", "#3FA535", "#1B4F9C", "#C2398B", "#00A3A3", "#8A5CF6", "#D4A017", "#E0483E"];
 
@@ -92,15 +105,45 @@ function norm(q) {
   return { type: "choice", q: { en: q.q || "", id: "" }, img: q.img || "", options: (q.options || []).map((o, k) => ({ t: { en: o.text || "", id: "" }, img: o.img || "", ok: k === q.correct })) };
 }
 
+// ---- drag & drop (mouse + sentuh) ----
+function dnd(root, o) {
+  let d = null;
+  root.addEventListener("pointerdown", e => {
+    const c = e.target.closest(o.chip);
+    if (!c || !root.contains(c) || root.classList.contains("lock")) return;
+    d = { c, x: e.clientX, y: e.clientY, g: null, id: e.pointerId };
+    try { c.setPointerCapture(e.pointerId); } catch (x) {}
+  });
+  root.addEventListener("pointermove", e => {
+    if (!d || e.pointerId !== d.id) return;
+    if (!d.g && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) {
+      const r = d.c.getBoundingClientRect();
+      d.g = d.c.cloneNode(true); d.g.classList.add("ghost"); d.g.style.width = r.width + "px"; document.body.appendChild(d.g); d.c.classList.add("dragging");
+    }
+    if (d.g) { d.g.style.left = e.clientX + "px"; d.g.style.top = e.clientY + "px"; }
+  });
+  const end = e => {
+    if (!d || e.pointerId !== d.id) return;
+    const x = d; d = null; const up = e.type === "pointerup";
+    if (x.g) {
+      x.g.style.display = "none"; const el = document.elementFromPoint(e.clientX, e.clientY); x.g.remove(); x.c.classList.remove("dragging");
+      if (up) o.drop(x.c, el && el.closest(o.zone));
+    } else if (up) o.tap(x.c);
+  };
+  root.addEventListener("pointerup", end); root.addEventListener("pointercancel", end);
+}
+const chipHTML = (t, img, attrs) => `<div class="cd" ${attrs}>${img ? `<img src="${esc(img)}" draggable="false">` : ""}${T(t)}</div>`;
+
 const TYPES = {
   choice: {
-    draw: q => { const m = q.options.filter(o => o.ok).length > 1; return q.options.map((o, k) => `<div class="opt" data-k="${k}"><b class="${m ? "" : "rb"}"></b>${o.img ? `<img src="${esc(o.img)}">` : ""}<span>${T(o.t)}</span></div>`).join(""); },
+    draw: q => { const m = isMulti(q); return q.options.map((o, k) => `<div class="opt" data-k="${k}"><b class="${m ? "" : "rb"}"></b>${o.img ? `<img src="${esc(o.img)}">` : ""}<span>${T(o.t)}</span></div>`).join(""); },
     bind: (r, q) => {
-      const sel = new Set(), multi = q.options.filter(o => o.ok).length > 1, els = r.querySelectorAll(".opt");
+      const sel = new Set(), multi = isMulti(q), els = r.querySelectorAll(".opt");
       els.forEach(el => el.onclick = () => { const k = +el.dataset.k; if (!multi) sel.clear(); sel.has(k) ? sel.delete(k) : sel.add(k); els.forEach(x => x.classList.toggle("sel", sel.has(+x.dataset.k))); });
       return {
         get: () => ({ done: sel.size > 0, ok: q.options.every((o, k) => !!o.ok === sel.has(k)), text: [...sel].map(k => raw(q.options[k].t) || "picture " + (k + 1)).join(", ") }),
-        show: () => els.forEach(el => { const k = +el.dataset.k; el.classList.remove("sel"); if (q.options[k].ok) el.classList.add("right"); else if (sel.has(k)) el.classList.add("wrong"); })
+        show: () => els.forEach(el => { const k = +el.dataset.k; el.classList.remove("sel"); if (q.options[k].ok) el.classList.add("right"); else if (sel.has(k)) el.classList.add("wrong"); }),
+        soft: () => { sel.clear(); els.forEach(x => x.classList.remove("sel")); }
       };
     }
   },
@@ -108,7 +151,14 @@ const TYPES = {
     draw: () => `<input class="ti" data-ph="type" placeholder="${esc(plain("type"))}">`,
     bind: (r, q) => {
       const i = r.querySelector(".ti"), acc = (q.answers || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
-      return { get: () => ({ done: !!i.value.trim(), ok: acc.length ? acc.includes(i.value.trim().toLowerCase()) : null, text: i.value.trim() }), show: () => { i.disabled = true; } };
+      return { get: () => ({ done: !!i.value.trim(), ok: acc.length ? acc.includes(i.value.trim().toLowerCase()) : null, text: i.value.trim() }), show: () => { i.disabled = true; }, soft: () => { i.focus(); i.select(); } };
+    }
+  },
+  essay: {
+    draw: () => `<textarea class="ta" rows="5" data-ph="type" placeholder="${esc(plain("type"))}"></textarea>`,
+    bind: r => {
+      const i = r.querySelector(".ta");
+      return { get: () => ({ done: !!i.value.trim(), ok: null, text: i.value.trim() }), show: () => { i.disabled = true; } };
     }
   },
   dropdown: {
@@ -122,51 +172,144 @@ const TYPES = {
       const ss = [...r.querySelectorAll("select")], key = i => q.blanks[i].opts.split(",")[0].trim();
       return {
         get: () => ({ done: ss.every(s => s.value), ok: ss.every((s, i) => s.value === key(i)), text: ss.map(s => s.value).join(" | ") }),
-        show: () => ss.forEach((s, i) => { s.disabled = true; s.classList.add(s.value === key(i) ? "right" : "wrong"); })
+        show: () => ss.forEach((s, i) => { s.disabled = true; s.classList.add(s.value === key(i) ? "right" : "wrong"); }),
+        soft: () => ss.forEach((s, i) => { if (s.value !== key(i)) s.value = ""; })
       };
     }
   },
   match: {
-    draw: q => `<div class="mt"><div>${q.pairs.map((p, i) => `<div class="m l" data-i="${i}">${T(p.l)}</div>`).join("")}</div><div>${shuffle(q.pairs.map((_, i) => i)).map(i => `<div class="m r" data-i="${i}">${T(q.pairs[i].r)}</div>`).join("")}</div></div>`,
+    draw: q => `<div class="mx"><svg class="ml"></svg><div class="mc">${q.pairs.map((p, i) => `<div class="m l" data-i="${i}">${T(p.l)}</div>`).join("")}</div><div class="mc">${shuffle(q.pairs.map((_, i) => i)).map(i => `<div class="m r" data-i="${i}">${T(q.pairs[i].r)}</div>`).join("")}</div></div>`,
     bind: (r, q) => {
-      const pair = {}; let cur = null; const Ls = [...r.querySelectorAll(".l")], Rs = [...r.querySelectorAll(".r")];
+      const mx = r.querySelector(".mx"), svg = mx.querySelector("svg"), Ls = [...r.querySelectorAll(".m.l")], Rs = [...r.querySelectorAll(".m.r")];
+      const byI = (a, i) => a.find(e => +e.dataset.i === i), G = "#3FA535", Rd = "#e0483e";
+      let pair = {}, cur = null, rub = null, verdict = false, reveal = false, down = null;
+      const pt = (el, side) => { const a = mx.getBoundingClientRect(), b = el.getBoundingClientRect(); return { x: (side === "L" ? b.right : b.left) - a.left, y: b.top + b.height / 2 - a.top }; };
+      const ln = (a, b, col, dash) => `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="5" stroke-linecap="round"${dash ? ' stroke-dasharray="1 10"' : ""}/>`;
+      const colOf = i => verdict ? (pair[i] === +i ? G : Rd) : COL[i % 8];
       const paint = () => {
-        Ls.forEach(e => { const i = +e.dataset.i; e.style.borderColor = pair[i] != null ? COL[i % 8] : ""; e.classList.toggle("sel", cur === i); });
-        Rs.forEach(e => { const j = +e.dataset.i, i = Object.keys(pair).find(k => pair[k] === j); e.style.borderColor = i != null ? COL[i % 8] : ""; });
+        let h = "";
+        Object.keys(pair).forEach(i => { h += ln(pt(byI(Ls, +i), "L"), pt(byI(Rs, pair[i]), "R"), colOf(i)); });
+        if (reveal) Object.keys(pair).forEach(i => { if (pair[i] !== +i) h += ln(pt(byI(Ls, +i), "L"), pt(byI(Rs, +i), "R"), G, true); });
+        if (rub) h += ln(rub.a, rub.b, "#8a94a6", true);
+        svg.innerHTML = h;
+        Ls.forEach(e => { const i = +e.dataset.i; e.style.borderColor = pair[i] != null ? colOf(i) : ""; e.classList.toggle("sel", !!cur && cur.side === "L" && cur.i === i); });
+        Rs.forEach(e => { const j = +e.dataset.i, i = Object.keys(pair).find(k => pair[k] === j); e.style.borderColor = i != null ? colOf(i) : ""; e.classList.toggle("sel", !!cur && cur.side === "R" && cur.i === j); });
       };
-      Ls.forEach(e => e.onclick = () => { cur = +e.dataset.i; delete pair[cur]; paint(); });
-      Rs.forEach(e => e.onclick = () => { if (cur == null) return; const j = +e.dataset.i; for (const k in pair) if (pair[k] === j) delete pair[k]; pair[cur] = j; cur = null; paint(); });
+      const link = (li, rj) => { delete pair[li]; for (const k in pair) if (pair[k] === rj) delete pair[k]; pair[li] = rj; cur = null; };
+      r.addEventListener("pointerdown", ev => {
+        const e = ev.target.closest(".m"); if (!e || r.classList.contains("lock")) return;
+        down = { e, side: e.classList.contains("l") ? "L" : "R", i: +e.dataset.i, x: ev.clientX, y: ev.clientY, moved: false, id: ev.pointerId };
+        try { e.setPointerCapture(ev.pointerId); } catch (x) {}
+      });
+      r.addEventListener("pointermove", ev => {
+        if (!down || ev.pointerId !== down.id) return;
+        if (!down.moved && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 6) down.moved = true;
+        if (down.moved) { const m = mx.getBoundingClientRect(); rub = { a: pt(down.e, down.side), b: { x: ev.clientX - m.left, y: ev.clientY - m.top } }; paint(); }
+      });
+      const up = ev => {
+        if (!down || ev.pointerId !== down.id) return;
+        const d = down; down = null; rub = null;
+        if (ev.type === "pointerup") {
+          if (d.moved) { const el = document.elementFromPoint(ev.clientX, ev.clientY), t = el && el.closest(".m"); if (t && t !== d.e && t.classList.contains(d.side === "L" ? "r" : "l")) { d.side === "L" ? link(d.i, +t.dataset.i) : link(+t.dataset.i, d.i); } }
+          else if (cur && cur.side !== d.side) { d.side === "L" ? link(d.i, cur.i) : link(cur.i, d.i); }
+          else cur = cur && cur.side === d.side && cur.i === d.i ? null : { side: d.side, i: d.i };
+        }
+        paint();
+      };
+      r.addEventListener("pointerup", up); r.addEventListener("pointercancel", up);
+      if (window.ResizeObserver) new ResizeObserver(paint).observe(mx);
+      paint();
       return {
         get: () => ({ done: Object.keys(pair).length === q.pairs.length, ok: q.pairs.every((_, i) => pair[i] === i), text: q.pairs.map((p, i) => raw(p.l) + "→" + (pair[i] != null ? raw(q.pairs[pair[i]].r) : "?")).join("; ") }),
-        show: () => Ls.forEach(e => { const i = +e.dataset.i; e.classList.add(pair[i] === i ? "right" : "wrong"); })
+        show: () => { verdict = true; reveal = true; cur = null; paint(); },
+        soft: () => { verdict = true; paint(); setTimeout(() => { verdict = false; Object.keys(pair).forEach(i => { if (pair[i] !== +i) delete pair[i]; }); paint(); }, 900); }
       };
     }
   },
   order: {
     draw: () => `<div class="slots"></div><button class="add" type="button">${U("addbox")}</button><div class="pool"></div>`,
     bind: (r, q) => {
-      const n = q.cards.length, cards = shuffle(q.cards.map((c, i) => ({ t: c.t, i })).concat((q.extras || []).map(c => ({ t: c.t, i: -1 })))), slots = Array(n).fill(null);
+      const n = q.cards.length, cards = shuffle(q.cards.map((c, i) => ({ t: c.t, i })).concat((q.extras || []).map(c => ({ t: c.t, i: -1 })))), slots = Array(n).fill(null), bad = new Set();
       let sel = null; const sl = r.querySelector(".slots"), po = r.querySelector(".pool");
       const paint = () => {
-        sl.innerHTML = slots.map((c, k) => `<div class="slot${sel === k ? " sel" : ""}" data-k="${k}"><small>${k + 1}</small>${c ? `<div class="cd" data-s="${k}">${T(c.t)}</div>` : ""}</div>`).join("");
+        sl.innerHTML = slots.map((c, k) => `<div class="slot${sel === k ? " sel" : ""}${bad.has(k) ? " wrong" : ""}" data-k="${k}"><small>${k + 1}</small>${c ? `<div class="cd" data-s="${k}">${T(c.t)}</div>` : ""}</div>`).join("");
         po.innerHTML = cards.filter(c => !slots.includes(c)).map(c => `<div class="cd" data-c="${cards.indexOf(c)}">${T(c.t)}</div>`).join("");
       };
-      r.onclick = e => {
-        const s = e.target.closest("[data-s]"), c = e.target.closest("[data-c]"), sk = e.target.closest(".slot"), ad = e.target.closest(".add");
-        if (ad) { if (slots.length < 12) slots.push(null); }
-        else if (s) slots[+s.dataset.s] = null;
-        else if (c) { let k = sel != null && !slots[sel] ? sel : slots.indexOf(null); if (k < 0) { slots.push(null); k = slots.length - 1; } slots[k] = cards[+c.dataset.c]; sel = null; }
-        else if (sk) sel = +sk.dataset.k;
+      const cardOf = ch => ch.dataset.s != null ? slots[+ch.dataset.s] : cards[+ch.dataset.c];
+      dnd(r, {
+        chip: ".cd", zone: ".slot,.pool",
+        drop: (ch, z) => {
+          const c = cardOf(ch), from = slots.indexOf(c);
+          if (z && z.classList.contains("slot")) { const k = +z.dataset.k, old = slots[k]; if (from >= 0) slots[from] = old; slots[k] = c; }
+          else if (from >= 0) slots[from] = null;
+          sel = null; paint();
+        },
+        tap: ch => {
+          if (ch.dataset.s != null) slots[+ch.dataset.s] = null;
+          else { let k = sel != null && !slots[sel] ? sel : slots.indexOf(null); if (k < 0) { slots.push(null); k = slots.length - 1; } slots[k] = cards[+ch.dataset.c]; sel = null; }
+          paint();
+        }
+      });
+      r.addEventListener("click", e => {
+        if (e.target.closest(".cd")) return;
+        const sk = e.target.closest(".slot"), ad = e.target.closest(".add");
+        if (ad) { if (slots.length < 12) slots.push(null); } else if (sk) sel = +sk.dataset.k; else return;
         paint();
-      };
+      });
       paint();
       return {
         get: () => { const f = slots.filter(Boolean); return { done: f.length > 0, ok: f.length === n && f.every((c, k) => c.i === k), text: f.map(c => raw(c.t)).join(" > ") }; },
-        show: () => {}
+        show: () => {},
+        soft: () => { slots.forEach((c, k) => { if (c && c.i !== k) bad.add(k); }); paint(); setTimeout(() => { bad.forEach(k => { slots[k] = null; }); bad.clear(); paint(); }, 900); }
+      };
+    }
+  },
+  dragdrop: {
+    draw: q => `<div class="dzs">${q.pairs.map((p, k) => `<div class="dz" data-k="${k}"><div class="dzl">${p.l.img ? `<img src="${esc(p.l.img)}" draggable="false">` : ""}${T(p.l.t)}</div><div class="dzb"></div></div>`).join("")}</div><div class="pool"></div>`,
+    bind: (r, q) => {
+      const n = q.pairs.length, items = shuffle(q.pairs.map((p, k) => ({ t: p.r.t, img: p.r.img, i: k })).concat((q.extras || []).map(e => ({ t: e.t, img: e.img, i: -1 })))), put = Array(n).fill(null), mark = {};
+      let sel = null; const zs = [...r.querySelectorAll(".dz")], po = r.querySelector(".pool");
+      const paint = () => {
+        zs.forEach((z, k) => {
+          const c = put[k]; z.className = "dz" + (sel === k ? " sel" : "") + (mark[k] ? " " + mark[k] : "");
+          z.querySelector(".dzb").innerHTML = c ? chipHTML(c.t, c.img, `data-z="${k}"`) : `<span class="ph">⬇</span>`;
+        });
+        po.innerHTML = items.filter(c => !put.includes(c)).map(c => chipHTML(c.t, c.img, `data-c="${items.indexOf(c)}"`)).join("");
+      };
+      const itemOf = ch => ch.dataset.z != null ? put[+ch.dataset.z] : items[+ch.dataset.c];
+      dnd(r, {
+        chip: ".cd", zone: ".dz,.pool",
+        drop: (ch, z) => {
+          const c = itemOf(ch), from = put.indexOf(c);
+          if (z && z.classList.contains("dz")) { const k = +z.dataset.k, old = put[k]; if (from >= 0) put[from] = old; put[k] = c; }
+          else if (from >= 0) put[from] = null;
+          sel = null; paint();
+        },
+        tap: ch => {
+          if (ch.dataset.z != null) put[+ch.dataset.z] = null;
+          else { const k = sel != null && !put[sel] ? sel : put.indexOf(null); if (k >= 0) { put[k] = items[+ch.dataset.c]; } sel = null; }
+          paint();
+        }
+      });
+      r.addEventListener("click", e => { if (e.target.closest(".cd")) return; const z = e.target.closest(".dz"); if (z && !put[+z.dataset.k]) { sel = +z.dataset.k; paint(); } });
+      paint();
+      const lab = (c, k) => c ? (raw(c.t) || "picture " + (items.indexOf(c) + 1)) : "?";
+      return {
+        get: () => ({ done: put.every(Boolean), ok: put.every((c, k) => c && c.i === k), text: q.pairs.map((p, k) => (raw(p.l.t) || "picture " + (k + 1)) + "→" + lab(put[k], k)).join("; ") }),
+        show: () => {
+          put.forEach((c, k) => { mark[k] = c && c.i === k ? "right" : "wrong"; });
+          paint();
+          zs.forEach((z, k) => { if (mark[k] === "wrong") { const p = q.pairs[k].r; z.insertAdjacentHTML("beforeend", `<div class="fix">✔ ${p.img ? `<img src="${esc(p.img)}">` : ""}${T(p.t)}</div>`); } });
+        },
+        soft: () => {
+          put.forEach((c, k) => { if (c && c.i !== k) mark[k] = "wrong"; }); paint();
+          setTimeout(() => { put.forEach((c, k) => { if (mark[k] === "wrong") put[k] = null; delete mark[k]; }); paint(); }, 900);
+        }
       };
     }
   }
 };
+const isMulti = q => q.mode ? q.mode === "multi" : q.options.filter(o => o.ok).length > 1;
 
 function applyLang() {
   const on = lang === "id";
@@ -241,7 +384,8 @@ function showHub() {
 }
 function startQuiz(ci) {
   const c = L.challenges[ci], Q = c.questions, key = progKey(LID, S, "Quiz" + cidOf(c, ci)), sig = quizSig(c);
-  let PR = readJ(key); if (!PR || PR.sig !== sig || !PR.res) PR = { sig, res: {} };
+  let PR = readJ(key); if (!PR || PR.sig !== sig || !PR.res) PR = { sig, res: {} }; if (!PR.tries) PR.tries = {};
+  const label = lessonPlan(L)[ci].label, max = Math.max(1, Math.min(10, Math.floor(+c.attempts || 1)));
   const persist = () => { try { localStorage.setItem(key, JSON.stringify(PR)); } catch (e) {} };
   const stars = () => Object.values(PR.res).filter(r => r.ok === true).length;
   let qi = Q.findIndex((_, k) => !PR.res[k]);
@@ -251,12 +395,14 @@ function startQuiz(ci) {
       <div class="card"><h2>${esc(c.title)} ✅</h2>${Q.map((q, k) => { const r = PR.res[k] || {}; return `<div class="rv ${r.ok === true ? "g" : r.ok === false ? "b" : ""}"><b>${k + 1}.</b> ${T(q.q)}<i>${esc(r.text)} ${r.ok === true ? "✅" : r.ok === false ? "❌" : "📝"}</i></div>`; }).join("")}</div>
       <button class="go" id="rt">${U("retry")}</button>`, true);
     document.getElementById("bk").onclick = showHub;
-    document.getElementById("rt").onclick = () => { if (!confirm(msg("sure"))) return; PR = { sig, res: {} }; persist(); startQuiz(ci); };
+    document.getElementById("rt").onclick = () => { if (!confirm(msg("sure"))) return; PR = { sig, res: {}, tries: {} }; persist(); startQuiz(ci); };
   };
   if (qi < 0) { review(); return; }
   const draw = () => {
     view = null; const q = Q[qi], ty = TYPES[q.type] || TYPES.choice, last = qi === Q.length - 1; let locked = false;
-    shell(`<div class="steps"><button class="back" id="bk">←</button>${Q.map((_, k) => `<i class="${k < qi ? "ok" : k === qi ? "cur" : ""}">${k < qi ? "✓" : k + 1}</i>`).join("")}<span class="st">⭐ ${stars()}</span></div>
+    let tries = Math.min(PR.tries[qi] || 0, max - 1);
+    const left = () => max > 1 ? `<span class="tries">🎯 ${U("chances")}: ${max - tries}/${max}</span>` : "";
+    shell(`<div class="steps"><button class="back" id="bk">←</button>${Q.map((_, k) => `<i class="${k < qi ? "ok" : k === qi ? "cur" : ""}">${k < qi ? "✓" : k + 1}</i>`).join("")}<span class="st">⭐ ${stars()}</span><span id="tr2">${left()}</span></div>
       <div class="qa">${q.img || !ty.own ? `<div class="card q">${q.img ? `<img src="${esc(q.img)}">` : ""}${ty.own ? "" : `<h2>${T(q.q)}</h2>`}</div>` : ""}
       <div class="card" id="area">${ty.draw(q)}</div></div><div id="fb"></div><button class="go" id="go">${U("check")}</button>`, true);
     const area = document.getElementById("area"), h = ty.bind(area, q), go = document.getElementById("go"), fb = document.getElementById("fb");
@@ -264,11 +410,21 @@ function startQuiz(ci) {
     go.onclick = () => {
       if (locked) { if (!last) { qi++; draw(); } else { showHub(); } return; }
       const r = h.get(); if (!r.done) { alert(msg("ans")); return; }
+      tries++; PR.tries[qi] = tries;
+      const fin = r.ok !== false || tries >= max;
+      const item = { challenge: label, kind: "quiz", no: qi + 1, question: raw(q.q), answer: r.text, status: r.ok === true ? "benar" : r.ok === false ? "salah" : "tidak dinilai", score: r.ok === true ? 1 : r.ok === false ? 0 : "", attempt: tries };
+      if (!fin) {
+        area.classList.add("shake"); setTimeout(() => area.classList.remove("shake"), 500);
+        fb.className = "bad"; fb.innerHTML = U("retry2"); document.getElementById("tr2").innerHTML = left();
+        if (h.soft) h.soft();
+        persist(); send([item]); return;
+      }
       locked = true; area.classList.add("lock"); h.show(); if (r.ok) confetti(); else if (r.ok === false) area.classList.add("shake");
-      PR.res[qi] = { ok: r.ok, text: r.text }; persist();
-      fb.className = r.ok === false ? "bad" : "good"; fb.innerHTML = r.ok === true ? U("good") : r.ok === false ? U("bad") : U("saved");
+      PR.res[qi] = { ok: r.ok, text: r.text, tries }; persist();
+      fb.className = r.ok === false ? "bad" : "good"; fb.innerHTML = r.ok === true ? U("good") : r.ok === false ? U("bad") : U("manual");
+      document.getElementById("tr2").innerHTML = left();
       go.innerHTML = last ? U("finish") : U("next");
-      send([{ challenge: c.title, no: qi + 1, question: raw(q.q), answer: r.text, status: r.ok === true ? "benar" : r.ok === false ? "salah" : "tidak dinilai", score: r.ok === true ? 1 : r.ok === false ? 0 : "" }]);
+      send([item]);
     };
   };
   draw();

@@ -20,7 +20,7 @@ details{font-size:13px}.ok{color:var(--g);font-weight:700}.no{color:#d03a30;font
 <div class="w">
   <div class="c row"><label>Lesson: <select id="fl"></select></label><label>Kelas: <select id="fc"></select></label>
     <button id="e1">⬇ Rekap siswa (CSV)</button><button id="e2">⬇ Semua jawaban (CSV)</button><a href="#" id="sh" target="_blank">Buka Google Sheet</a></div>
-  <div class="c"><h3>Rekap per siswa</h3><p style="font-size:13px;opacity:.7">Nilai = % benar dari soal yang dinilai (pakai jawaban terakhir tiap soal). Klik "lihat" untuk melihat jawaban per soal.</p><div id="t1">Memuat…</div></div>
+  <div class="c"><h3>Rekap per siswa</h3><p style="font-size:13px;opacity:.7">Nilai dihitung <b>per quiz</b> (% benar dari soal yang dinilai otomatis) dan <b>per game</b> (% level reguler yang selesai, bonus ⭐ dihitung terpisah). Soal uraian / isian tanpa kunci <b>tidak masuk nilai</b> dan ditandai <span class="no">cek manual</span>. Pakai jawaban terakhir tiap soal.</p><div id="t1">Memuat…</div></div>
   <div class="c"><h3>Analisis per soal</h3><p style="font-size:13px;opacity:.7">Soal dengan % benar rendah (merah) = materi yang perlu diulang.</p><div id="t2"></div></div>
 </div>
 <script src="api.js"></script>
@@ -36,12 +36,18 @@ async function load() {
     const r = await api("getResults", { key });
     if (!r.ok) throw new Error(r.error || "Gagal (deploy ulang Apps Script?)");
     sessionStorage.setItem("adminKey", key);
-    rows = r.rows.map(a => ({ t: a[0], lid: a[1], lesson: a[2], name: a[3], cls: a[4], ch: a[5], no: a[6], q: a[7], a: a[8], st: a[9], sc: a[10] }));
+    rows = r.rows.map(a => ({ t: a[0], lid: a[1], lesson: a[2], name: a[3], cls: a[4], ch: a[5], no: a[6], q: a[7], a: a[8], st: a[9], sc: a[10], tr: a[11] || 1 }));
     const want = new URLSearchParams(location.search).get("lesson"), ls = {};
     rows.forEach(x => ls[x.lid] = x.lesson);
     $("fl").innerHTML = Object.keys(ls).map(k => `<option value="${esc(k)}" ${k === want ? "selected" : ""}>${esc(ls[k])}</option>`).join("") || "<option value=''>(belum ada data)</option>";
-    fillCls(); draw();
+    fillCls(); await loadPlan(); draw();
   } catch (e) { $("t1").textContent = "Gagal memuat: " + e.message; }
+}
+let PLAN = {};
+async function loadPlan() {
+  PLAN = {};
+  const id = $("fl").value; if (!id) return;
+  try { const r = await apiGet("getLesson", { id }); if (r.ok) lessonPlan(r.lesson).forEach(p => PLAN[p.label] = p); } catch (e) {}
 }
 function fillCls() {
   const cs = [...new Set(rows.filter(x => x.lid === $("fl").value).map(x => x.cls))].sort();
@@ -50,23 +56,33 @@ function fillCls() {
 function draw() {
   raw = rows.filter(x => x.lid === $("fl").value && (!$("fc").value || x.cls === $("fc").value));
   const last = new Map(); raw.forEach(x => last.set([x.name, x.cls, x.ch, x.no, x.q].join("|"), x)); rec = [...last.values()];
+  // daftar challenge: game = ada baris berstatus "selesai"
+  const CH = []; const seen = {};
+  raw.forEach(x => { if (!seen[x.ch]) { seen[x.ch] = { name: x.ch, game: false }; CH.push(seen[x.ch]); } if (x.st === "selesai") seen[x.ch].game = true; });
+  Object.keys(PLAN).forEach(l => { if (!seen[l]) { seen[l] = { name: l, game: PLAN[l].type === "game" }; CH.push(seen[l]); } else seen[l].game = PLAN[l].type === "game"; });
   const stu = {}; rec.forEach(x => { const k = x.name + "|" + x.cls; (stu[k] = stu[k] || { name: x.name, cls: x.cls, items: [] }).items.push(x); });
   const S = Object.values(stu).map(s => {
-    const g = s.items.filter(x => x.st === "benar" || x.st === "salah"), ok = g.filter(x => x.st === "benar").length;
-    return Object.assign(s, { graded: g.length, ok, pct: g.length ? Math.round(ok / g.length * 100) : null, games: s.items.filter(x => x.st === "selesai").length, total: s.items.filter(x => x.st !== "selesai").length });
+    s.per = {};
+    CH.forEach(c => {
+      const it = s.items.filter(x => x.ch === c.name);
+      if (c.game) { const p = PLAN[c.name], reg = p ? p.reg : null, bonus = p ? p.bonus : 0, nums = it.map(x => +x.no), d = nums.filter(n => reg == null || n <= reg).length, b = reg == null ? 0 : nums.filter(n => n > reg).length; s.per[c.name] = { game: true, d, reg, b, bonus, pct: reg ? Math.round(d / reg * 100) : null }; }
+      else { const g = it.filter(x => x.st === "benar" || x.st === "salah"), ok = g.filter(x => x.st === "benar").length; s.per[c.name] = { game: false, ok, graded: g.length, manual: it.filter(x => x.st === "tidak dinilai").length, answered: it.length, pct: g.length ? Math.round(ok / g.length * 100) : null }; }
+    });
+    return s;
   }).sort((a, b) => a.cls.localeCompare(b.cls) || a.name.localeCompare(b.name));
-  $("t1").innerHTML = S.length ? `<table><tr><th>Nama</th><th>Kelas</th><th>Soal dijawab</th><th>Benar</th><th>Nilai</th><th>Level game selesai</th><th>Jawaban</th></tr>${S.map(s => `<tr><td>${esc(s.name)}</td><td>${esc(s.cls)}</td><td>${s.total}</td><td>${s.ok}/${s.graded}</td><td><b>${s.pct == null ? "-" : s.pct}</b></td><td>${s.games}</td><td><details><summary>lihat</summary>${s.items.map(x => `<div>${esc(x.ch)} #${esc(x.no)}: ${esc(x.q)} → <i>${esc(x.a)}</i> <span class="${x.st === "benar" ? "ok" : x.st === "salah" ? "no" : ""}">${esc(x.st)}</span></div>`).join("")}</details></td></tr>`).join("")}</table>` : "Belum ada data.";
+  const cellH = (c, p) => p.game ? `<b>${p.pct == null ? "-" : p.pct + "%"}</b><br><small>${p.d}${p.reg != null ? "/" + p.reg : ""} level${p.bonus ? ` · ⭐ ${p.b}/${p.bonus}` : ""}</small>` : `<b>${p.pct == null ? "-" : p.pct + "%"}</b><br><small>${p.ok}/${p.graded} benar${p.manual ? ` · <span class="no">${p.manual} cek manual</span>` : ""}</small>`;
+  $("t1").innerHTML = S.length ? `<table><tr><th>Nama</th><th>Kelas</th>${CH.map(c => `<th>${c.game ? "🎮" : "❓"} ${esc(c.name)}</th>`).join("")}<th>Jawaban</th></tr>${S.map(s => `<tr><td>${esc(s.name)}</td><td>${esc(s.cls)}</td>${CH.map(c => `<td>${cellH(c, s.per[c.name])}</td>`).join("")}<td><details><summary>lihat</summary>${s.items.map(x => `<div>${esc(x.ch)} #${esc(x.no)}: ${esc(x.q)} → <i>${esc(x.a)}</i> <span class="${x.st === "benar" ? "ok" : x.st === "salah" ? "no" : ""}">${esc(x.st)}${x.tr > 1 ? " (" + x.tr + "x)" : ""}</span></div>`).join("")}</details></td></tr>`).join("")}</table>` : "Belum ada data.";
   const qs = {}; rec.filter(x => x.st !== "selesai").forEach(x => { const k = x.ch + "|" + x.no + "|" + x.q; (qs[k] = qs[k] || { ch: x.ch, no: +x.no, q: x.q, n: 0, g: 0, ok: 0 }).n++; if (x.st === "benar" || x.st === "salah") { qs[k].g++; if (x.st === "benar") qs[k].ok++; } });
   const Q = Object.values(qs).sort((a, b) => a.ch.localeCompare(b.ch) || a.no - b.no);
-  $("t2").innerHTML = Q.length ? `<table><tr><th>Challenge</th><th>No</th><th>Soal</th><th>Menjawab</th><th>% benar</th></tr>${Q.map(q => { const p = q.g ? Math.round(q.ok / q.g * 100) : null; return `<tr><td>${esc(q.ch)}</td><td>${q.no}</td><td>${esc(q.q)}</td><td>${q.n}</td><td>${p == null ? "tidak dinilai" : `${p}%<div class="bar ${p < 50 ? "low" : ""}"><i style="width:${p}%"></i></div>`}</td></tr>`; }).join("")}</table>` : "Belum ada data soal.";
-  draw.S = S;
+  $("t2").innerHTML = Q.length ? `<table><tr><th>Challenge</th><th>No</th><th>Soal</th><th>Menjawab</th><th>% benar</th></tr>${Q.map(q => { const p = q.g ? Math.round(q.ok / q.g * 100) : null; return `<tr><td>${esc(q.ch)}</td><td>${q.no}</td><td>${esc(q.q)}</td><td>${q.n}</td><td>${p == null ? "tidak dinilai (cek manual)" : `${p}%<div class="bar ${p < 50 ? "low" : ""}"><i style="width:${p}%"></i></div>`}</td></tr>`; }).join("")}</table>` : "Belum ada data soal.";
+  draw.S = S; draw.CH = CH;
 }
 function csv(a, name) {
   const t = "\ufeff" + a.map(r => r.map(c => '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"').join(",")).join("\n");
   const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([t], { type: "text/csv" })); l.download = name; l.click();
 }
-$("fl").onchange = () => { fillCls(); draw(); }; $("fc").onchange = draw; $("reload").onclick = load;
-$("e1").onclick = () => csv([["Nama", "Kelas", "Soal dijawab", "Benar", "Dinilai", "Nilai (%)", "Level game selesai"]].concat((draw.S || []).map(s => [s.name, s.cls, s.total, s.ok, s.graded, s.pct == null ? "" : s.pct, s.games])), "rekap-siswa.csv");
+$("fl").onchange = async () => { fillCls(); await loadPlan(); draw(); }; $("fc").onchange = draw; $("reload").onclick = load;
+$("e1").onclick = () => { const CH = draw.CH || []; csv([["Nama", "Kelas"].concat(...CH.map(c => c.game ? [c.name + " - level selesai", c.name + " - bonus", c.name + " - nilai (%)"] : [c.name + " - benar", c.name + " - dinilai", c.name + " - cek manual", c.name + " - nilai (%)"]))].concat((draw.S || []).map(s => [s.name, s.cls].concat(...CH.map(c => { const p = s.per[c.name]; return c.game ? [p.d, p.b, p.pct == null ? "" : p.pct] : [p.ok, p.graded, p.manual, p.pct == null ? "" : p.pct]; })))), "rekap-siswa.csv"); };
 $("e2").onclick = () => csv([["Waktu", "Nama", "Kelas", "Challenge", "No", "Pertanyaan", "Jawaban", "Status", "Skor"]].concat(raw.map(x => [x.t, x.name, x.cls, x.ch, x.no, x.q, x.a, x.st, x.sc])), "semua-jawaban.csv");
 load();
 </script>

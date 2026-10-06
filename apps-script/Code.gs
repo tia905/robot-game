@@ -9,10 +9,11 @@
 // Sheet "Jawaban" lama (1 jawaban = 1 baris) otomatis di-rename jadi "Jawaban_lama" dan datanya
 // dipindah ke "Log" sekali saja.
 
-var REKAP = "Jawaban", LOG = "Log";
-var LOG_H = ["waktu", "lesson_id", "lesson", "nama", "kelas", "challenge", "no", "pertanyaan", "jawaban", "status", "skor"];
-var FIX_H = ["waktu", "lesson_id", "lesson", "nama", "kelas", "level_game_selesai", "soal_benar", "soal_dinilai", "nilai_%"];
+var REKAP = "Jawaban", LOG = "Log", SEP = " | ";
+var LOG_H = ["waktu", "lesson_id", "lesson", "nama", "kelas", "challenge", "no", "pertanyaan", "jawaban", "status", "skor", "percobaan"];
+var FIX_H = ["waktu", "lesson_id", "lesson", "nama", "kelas"];
 var FIX_N = FIX_H.length;
+var LEGACY = ["level_game_selesai", "soal_benar", "soal_dinilai", "nilai_%"];
 
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
 function sheet_(n, h) {
@@ -43,8 +44,13 @@ function migrate_() {
     log.setFrozenRows(1);
   }
   var v = old.getDataRange().getValues();
-  if (v.length > 1) log.getRange(log.getLastRow() + 1, 1, v.length - 1, LOG_H.length).setValues(v.slice(1).map(function (r) { return r.slice(0, LOG_H.length); }));
+  if (v.length > 1) log.getRange(log.getLastRow() + 1, 1, v.length - 1, LOG_H.length).setValues(v.slice(1).map(function (r) { r = r.slice(0, 11); while (r.length < LOG_H.length) r.push(""); return r; }));
   old.setName("Jawaban_lama");
+}
+
+function fixLogHeader_() {
+  var lg = ss_().getSheetByName(LOG);
+  if (lg && lg.getLastRow() >= 1 && String(lg.getRange(1, 12).getValue()) === "") lg.getRange(1, 12).setValue("percobaan");
 }
 
 function doGet(e) {
@@ -58,55 +64,146 @@ function doGet(e) {
   return out_({ ok: true });
 }
 
-// ---- REKAP: 1 murid = 1 baris ----
+// ---- REKAP: 1 murid = 1 baris, nilai dihitung PER QUIZ dan PER GAME ----
+// Kolom per challenge (label = judul challenge):
+//   Quiz : "<label> | benar", "dinilai", "cek manual", "nilai %", lalu "#1", "#2", ...
+//   Game : "<label> | level selesai", "bonus ⭐", "nilai %", lalu "L1", "L2", ... (bonus: "L9 ⭐")
+// Soal uraian / isian tanpa kunci = TIDAK dihitung otomatis -> masuk "cek manual".
+// Nilai manual: ketik ✔ atau ✘ di akhir isi sel jawaban -> nilai terhitung ulang otomatis.
+function wantedCols_(plan) {
+  var out = [];
+  (plan || []).forEach(function (p) {
+    var L = String(p.label);
+    if (p.type === "game") {
+      out.push(L + SEP + "level selesai");
+      if (p.bonus > 0) out.push(L + SEP + "bonus ⭐");
+      out.push(L + SEP + "nilai %");
+      for (var i = 1; i <= p.reg; i++) out.push(L + SEP + "L" + i);
+      for (var j = 1; j <= p.bonus; j++) out.push(L + SEP + "L" + (p.reg + j) + " ⭐");
+    } else {
+      out.push(L + SEP + "benar", L + SEP + "dinilai", L + SEP + "cek manual", L + SEP + "nilai %");
+      for (var k = 1; k <= p.n; k++) out.push(L + SEP + "#" + k);
+    }
+  });
+  return out;
+}
 function colKey_(it) {
-  // Kolom per soal: "Game L1", "Quiz 2", dst.
-  var ch = String(it.challenge || "");
-  var isGame = /game/i.test(ch) && String(it.question || "").indexOf("Level") === 0;
-  if (isGame) return "Game " + String(it.question).replace(/^Level\s*/i, "L") + (it.bonus ? " ⭐" : "");
-  return ch + " #" + it.no;
+  var L = String(it.challenge || "");
+  var game = it.kind ? it.kind === "game" : it.status === "selesai";
+  return game ? L + SEP + "L" + it.no + (it.bonus ? " ⭐" : "") : L + SEP + "#" + it.no;
 }
 function cell_(it) {
   var a = String(it.answer == null ? "" : it.answer);
-  if (it.status === "benar") return a + "  ✔";
-  if (it.status === "salah") return a + "  ✘";
+  var n = Number(it.attempt) > 1 ? " (" + it.attempt + "x)" : "";
+  if (it.status === "benar") return a + "  ✔" + n;
+  if (it.status === "salah") return a + "  ✘" + n;
   return a;
+}
+function groupOf_(h) {
+  var p = String(h).split(SEP);
+  return p.length < 2 ? null : { lab: p.slice(0, -1).join(SEP), col: p[p.length - 1] };
+}
+// Tambah kolom yang belum ada (tidak mengacak kolom lama). Return header terbaru.
+function ensureCols_(s, wanted) {
+  var lastRow = s.getLastRow();
+  var head = s.getRange(1, 1, 1, Math.max(s.getLastColumn(), FIX_N)).getValues()[0].map(String);
+  while (head.length > FIX_N && head[head.length - 1] === "") head.pop();
+  var hasLegacy = LEGACY.some(function (n) { return head.indexOf(n) >= 0; });
+  var missing = wanted.filter(function (w, i) { return head.indexOf(w) < 0 && wanted.indexOf(w) === i; });
+  if (!missing.length && !hasLegacy) return head;
+  var data = lastRow > 1 ? s.getRange(2, 1, lastRow - 1, head.length).getValues() : [];
+  LEGACY.forEach(function (n) {
+    var i = head.indexOf(n);
+    if (i >= 0) { head.splice(i, 1); data.forEach(function (r) { r.splice(i, 1); }); }
+  });
+  missing.forEach(function (name) {
+    var g = groupOf_(name), at = -1;
+    for (var i = FIX_N; i < head.length; i++) { var h = groupOf_(head[i]); if (h && g && h.lab === g.lab) at = i; }
+    var idx = at < 0 ? head.length : at + 1;
+    head.splice(idx, 0, name);
+    data.forEach(function (r) { r.splice(idx, 0, ""); });
+  });
+  var oldW = Math.max(s.getLastColumn(), head.length);
+  if (oldW > head.length) s.getRange(1, head.length + 1, Math.max(lastRow, 1), oldW - head.length).clearContent();
+  s.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight("bold");
+  if (data.length) s.getRange(2, 1, data.length, head.length).setValues(data);
+  return head;
+}
+// Hitung ulang ringkasan nilai dari isi sel (per quiz & per game)
+function recompute_(head, row) {
+  var G = {};
+  head.forEach(function (h, i) {
+    var g = groupOf_(h); if (!g) return;
+    var o = G[g.lab] = G[g.lab] || { q: [], l: [], lb: [], sum: {} };
+    if (/^#\d+$/.test(g.col)) o.q.push(i);
+    else if (/^L\d+ ⭐$/.test(g.col)) o.lb.push(i);
+    else if (/^L\d+$/.test(g.col)) o.l.push(i);
+    else o.sum[g.col] = i;
+  });
+  function put(o, c, v) { if (o.sum[c] !== undefined) row[o.sum[c]] = v; }
+  Object.keys(G).forEach(function (lab) {
+    var o = G[lab];
+    if (o.q.length) {
+      var ok = 0, gr = 0, man = 0;
+      o.q.forEach(function (i) {
+        var v = String(row[i] == null ? "" : row[i]);
+        if (!v) return;
+        if (/✔(\s*\(\d+x\))?\s*$/.test(v)) { ok++; gr++; }
+        else if (/✘(\s*\(\d+x\))?\s*$/.test(v)) gr++;
+        else man++;
+      });
+      put(o, "benar", ok); put(o, "dinilai", gr); put(o, "cek manual", man);
+      put(o, "nilai %", gr ? Math.round(ok / gr * 100) : "");
+    } else if (o.l.length || o.lb.length) {
+      var d = 0, b = 0;
+      o.l.forEach(function (i) { if (String(row[i] == null ? "" : row[i])) d++; });
+      o.lb.forEach(function (i) { if (String(row[i] == null ? "" : row[i])) b++; });
+      put(o, "level selesai", d); put(o, "bonus ⭐", b);
+      put(o, "nilai %", o.l.length ? Math.round(d / o.l.length * 100) : "");
+    }
+  });
 }
 function upsertRekap_(d) {
   var s = sheet_(REKAP, FIX_H);
-  var lastCol = Math.max(s.getLastColumn(), FIX_N);
-  var head = s.getRange(1, 1, 1, lastCol).getValues()[0];
-  var data = s.getLastRow() > 1 ? s.getRange(2, 1, s.getLastRow() - 1, lastCol).getValues() : [];
+  var wanted = wantedCols_(d.plan);
+  d.items.forEach(function (it) { wanted.push(colKey_(it)); });
+  var head = ensureCols_(s, wanted), W = head.length;
+  var data = s.getLastRow() > 1 ? s.getRange(2, 1, s.getLastRow() - 1, W).getValues() : [];
   var lid = String(d.lessonId), nm = String(d.name || "").trim(), kl = String(d.cls || "").trim();
   var row = -1;
   for (var i = 0; i < data.length; i++) {
     if (String(data[i][1]) === lid && String(data[i][3]).trim().toLowerCase() === nm.toLowerCase() && String(data[i][4]).trim() === kl) { row = i; break; }
   }
   var cur = row >= 0 ? data[row].slice() : [];
-  while (cur.length < lastCol) cur.push("");
+  while (cur.length < W) cur.push("");
   if (row < 0) { cur[1] = t_(lid); cur[2] = t_(d.lessonTitle); cur[3] = t_(nm); cur[4] = t_(kl); }
   cur[0] = new Date();
-  // kolom dinamis
-  d.items.forEach(function (it) {
-    var key = colKey_(it), c = head.indexOf(key);
-    if (c < 0) { head.push(key); c = head.length - 1; while (cur.length < head.length) cur.push(""); }
-    while (cur.length < head.length) cur.push("");
-    cur[c] = t_(cell_(it));
-  });
-  // hitung ringkasan dari isi sel
-  var games = 0, ok = 0, graded = 0;
-  for (var c2 = FIX_N; c2 < head.length; c2++) {
-    var v = String(cur[c2] || "");
-    if (!v) continue;
-    if (/^Game L\d+/.test(String(head[c2]))) games++;
-    else if (/✔\s*$/.test(v)) { ok++; graded++; }
-    else if (/✘\s*$/.test(v)) graded++;
-  }
-  cur[5] = games; cur[6] = ok; cur[7] = graded; cur[8] = graded ? Math.round(ok / graded * 100) : "";
-  // tulis header (kalau ada kolom baru) + baris
-  while (head.length < cur.length) head.push("");
-  s.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight("bold");
-  if (row < 0) { s.appendRow(cur); } else { s.getRange(row + 2, 1, 1, cur.length).setValues([cur]); }
+  d.items.forEach(function (it) { cur[head.indexOf(colKey_(it))] = t_(cell_(it)); });
+  recompute_(head, cur);
+  if (row < 0) s.appendRow(cur); else s.getRange(row + 2, 1, 1, W).setValues([cur]);
+}
+
+// Dipanggil otomatis saat guru mengedit sel di sheet "Jawaban" (mis. mengetik ✔ / ✘ untuk nilai manual)
+function onEdit(e) {
+  try {
+    var s = e.range.getSheet();
+    if (s.getName() !== REKAP || e.range.getRow() < 2 || e.range.getLastColumn() <= FIX_N) return;
+    var W = s.getLastColumn(), head = s.getRange(1, 1, 1, W).getValues()[0].map(String);
+    for (var r = e.range.getRow(); r <= e.range.getLastRow(); r++) {
+      var rg = s.getRange(r, 1, 1, W), row = rg.getValues()[0];
+      recompute_(head, row); rg.setValues([row]);
+    }
+  } catch (err) {}
+}
+function recomputeAll_() {
+  var s = ss_().getSheetByName(REKAP); if (!s || s.getLastRow() < 2) return;
+  var W = s.getLastColumn(), head = s.getRange(1, 1, 1, W).getValues()[0].map(String);
+  var rg = s.getRange(2, 1, s.getLastRow() - 1, W), v = rg.getValues();
+  v.forEach(function (row) { recompute_(head, row); });
+  rg.setValues(v);
+}
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu("🤖 Robot Game").addItem("Hitung ulang semua nilai", "recomputeAll_").addToUi();
 }
 
 function doPost(e) {
@@ -141,7 +238,7 @@ function doPost(e) {
   }
   if (d.action === "getResults") {
     if (!admin_(d.key)) return out_({ ok: false, error: "Kunci admin salah" });
-    migrate_();
+    migrate_(); fixLogHeader_();
     var ls = sheet_(LOG, LOG_H);
     var vals = ls.getLastRow() > 1 ? ls.getRange(2, 1, ls.getLastRow() - 1, LOG_H.length).getValues() : [];
     vals.forEach(function (r) { if (r[0] instanceof Date) r[0] = r[0].toISOString(); });
@@ -151,10 +248,10 @@ function doPost(e) {
     var lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
-      migrate_();
+      migrate_(); fixLogHeader_();
       var lg = sheet_(LOG, LOG_H), now = new Date();
       d.items.forEach(function (it) {
-        lg.appendRow([now, t_(d.lessonId), t_(d.lessonTitle), t_(d.name), t_(d.cls), t_(it.challenge), it.no, t_(it.question), t_(it.answer), t_(it.status), it.score]);
+        lg.appendRow([now, t_(d.lessonId), t_(d.lessonTitle), t_(d.name), t_(d.cls), t_(it.challenge), it.no, t_(it.question), t_(it.answer), t_(it.status), it.score, it.attempt || 1]);
       });
       upsertRekap_(d);
     } finally { lock.releaseLock(); }

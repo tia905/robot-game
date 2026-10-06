@@ -50,6 +50,17 @@ const COORDINATE_IMAGE =
 const ROBOT_IMAGE =
     "assets/depan.png";
 
+/*
+    Sama persis dengan game.js:
+    0 = RIGHT, 1 = DOWN, 2 = LEFT, 3 = UP
+*/
+const ROBOT_DIRECTION_IMAGES = [
+    "assets/kanan.png",
+    "assets/depan.png",
+    "assets/kiri.png",
+    "assets/belakang.png"
+];
+
 
 /* =========================================================
    COORDINATE POSITIONS
@@ -1790,7 +1801,9 @@ function updateCellAppearance(
 
 
         robot.src =
-            ROBOT_IMAGE;
+            ROBOT_DIRECTION_IMAGES[
+                Number(currentStart.direction) || 0
+            ] || ROBOT_IMAGE;
 
 
         robot.alt =
