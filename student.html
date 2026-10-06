@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Robot Coding Game</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" media="print" onload="this.media='all'">
 <style>
 :root{--o:#E8832A;--g:#3FA535;--b:#1B4F9C;--n:#0F2F6B;--bg:#FFF8EC}
 *{box-sizing:border-box}
@@ -44,6 +44,15 @@ input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px sol
 .cd{padding:10px 14px;background:#fff1e0;border:3px solid var(--o);border-radius:14px;cursor:pointer;font-weight:700}.slot .cd{margin-top:14px}
 .add{background:var(--g);box-shadow:0 4px 0 #2a7a22;font-size:16px;padding:6px 14px}
 .lock{pointer-events:none}#fb{text-align:center;font-size:22px;font-weight:800;margin:10px 0 0}#fb.good{color:var(--g)}#fb.bad{color:#d03a30}
+body{background-image:radial-gradient(#f3c98b66 2px,transparent 2px);background-size:26px 26px}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}@keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
+.mascot{display:flex;align-items:center;gap:12px;justify-content:center;margin:16px 0}.mascot span{font-size:72px;animation:bob 1.6s ease-in-out infinite}
+.mascot p{margin:0;background:#fff;border:4px solid var(--o);border-radius:22px;padding:10px 18px;font-weight:800;font-size:20px}
+.node{transition:transform .2s}.node:hover{transform:translateY(-6px) rotate(-3deg)}.node.next span{animation:pulse 1.2s infinite;outline:7px solid #ffd9a8}
+.card{border:4px solid #ffe2bd}.opt{transition:transform .15s}.opt:hover{transform:scale(1.02)}.shake{animation:shake .4s}
+.cf{position:fixed;top:-30px;font-size:30px;pointer-events:none;z-index:99;animation:fall 2s linear forwards}
+header b::before{content:"🤖 "}.steps i{width:42px;height:42px;font-size:18px}.go{font-size:22px;padding:14px}
 </style>
 </head>
 <body>
@@ -71,6 +80,7 @@ const send = items => api("submit", { lessonId: L.id, lessonTitle: L.title, name
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const COL = ["#E8832A", "#3FA535", "#1B4F9C", "#C2398B", "#00A3A3", "#8A5CF6", "#D4A017", "#E0483E"];
 
+function confetti() { const e = ["⭐", "🎉", "✨", "🌟", "🎈"]; for (let i = 0; i < 28; i++) { const s = document.createElement("span"); s.className = "cf"; s.textContent = e[i % 5]; s.style.left = Math.random() * 100 + "vw"; s.style.animationDelay = Math.random() * .4 + "s"; document.body.appendChild(s); setTimeout(() => s.remove(), 2800); } }
 function norm(q) {
   if (q.type) return q;
   return { type: "choice", q: { en: q.q || "", id: "" }, img: q.img || "", options: (q.options || []).map((o, k) => ({ t: { en: o.text || "", id: "" }, img: o.img || "", ok: k === q.correct })) };
@@ -170,12 +180,12 @@ function prep() {
 }
 async function fetchLesson() {
   const r = await apiGet("getLesson", { id: LID }); if (!r.ok) throw 0;
-  L = r.lesson; sessionStorage.setItem("lesson_" + LID, JSON.stringify(L)); sessionStorage.setItem("robotStudentLesson", JSON.stringify(L)); prep();
+  L = r.lesson; localStorage.setItem("lesson_" + LID, JSON.stringify(L)); sessionStorage.setItem("robotStudentLesson", JSON.stringify(L)); prep();
 }
 async function init() {
   if (!LID) { shell(`<div class="card"><h2>Invalid link</h2></div>`); return; }
-  const c = sessionStorage.getItem("lesson_" + LID);
-  if (c) { L = JSON.parse(c); prep(); begin(); fetchLesson().catch(() => {}); return; }
+  const c = localStorage.getItem("lesson_" + LID);
+  if (c) { L = JSON.parse(c); sessionStorage.setItem("robotStudentLesson", c); prep(); begin(); fetchLesson().catch(() => {}); return; }
   shell(`<div class="card"><h2>⏳ ${U("load")}</h2></div>`);
   try { await fetchLesson(); begin(); } catch (e) { shell(`<div class="card"><h2>${U("err")}</h2></div>`); }
 }
@@ -197,7 +207,7 @@ function showLogin() {
 function showHub() {
   view = showHub; const d = S.done, n = L.challenges.length, got = L.challenges.filter((_, i) => d[i]).length;
   shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div></div>
-    <div class="path">${L.challenges.map((c, i) => `<button class="node c${i % 3}" data-i="${i}"><span>${d[i] ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}</button>`).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
+    <div class="mascot"><span>🤖</span><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => `<button class="node c${i % 3}${!d[i] && L.challenges.findIndex((_, k) => !d[k]) === i ? " next" : ""}" data-i="${i}"><span>${d[i] ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}</button>`).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
   app.querySelectorAll(".node").forEach(b => b.onclick = () => {
     const i = +b.dataset.i, c = L.challenges[i];
     if (c.type === "game") location.href = "index.html?lesson=" + encodeURIComponent(LID) + "&student=1"; else startQuiz(i);
@@ -215,10 +225,10 @@ function startQuiz(ci) {
     go.onclick = () => {
       if (locked) { if (!last) { qi++; draw(); } else { S.done[ci] = true; save(); showHub(); } return; }
       const r = h.get(); if (!r.done) { alert(msg("ans")); return; }
-      locked = true; area.classList.add("lock"); h.show(); if (r.ok) stars++;
+      locked = true; area.classList.add("lock"); h.show(); if (r.ok) { stars++; confetti(); } else if (r.ok === false) area.classList.add("shake");
       fb.className = r.ok === false ? "bad" : "good"; fb.innerHTML = r.ok === true ? U("good") : r.ok === false ? U("bad") : U("saved");
       go.innerHTML = last ? U("finish") : U("next");
-      send([{ challenge: c.title, question: raw(q.q), answer: r.text + (r.ok === true ? " (benar)" : r.ok === false ? " (salah)" : " (tidak dinilai)") }]);
+      send([{ challenge: c.title, no: qi + 1, question: raw(q.q), answer: r.text, status: r.ok === true ? "benar" : r.ok === false ? "salah" : "tidak dinilai", score: r.ok === true ? 1 : r.ok === false ? 0 : "" }]);
     };
   };
   draw();

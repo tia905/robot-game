@@ -26,7 +26,7 @@ async function autoTranslate(lesson, key) {
     let done = 0, failed = 0;
     for (let i = 0; i < todo.length; i += 40) {
         const r = await api("translate", { key: key, texts: src.slice(i, i + 40) });
-        if (!r.ok) throw new Error(r.error || "Terjemahan gagal");
+        if (!r.ok || !Array.isArray(r.texts)) throw new Error(r.error || "Apps Script belum di-deploy ulang (aksi translate belum dikenali)");
         r.texts.forEach((t, k) => {
             const o = todo[i + k];
             t = _decode(t || "").replace(/\[\s*\d+\s*\]/g, "___");

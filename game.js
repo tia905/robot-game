@@ -4631,7 +4631,7 @@ if (isStudentMode) {
             api("submit", {
                 lessonId: selectedLesson.id, lessonTitle: selectedLesson.title,
                 name: st.name, cls: st.cls,
-                items: [{ challenge: "Game", question: "Level " + currentLevel, answer: "Selesai, " + n + " blok" }]
+                items: [{ challenge: "Game", question: "Level " + currentLevel, answer: "Selesai, " + n + " blok", no: currentLevel, status: "selesai", score: 1 }]
             }).catch(function () {});
         }
     };

@@ -30,6 +30,7 @@ input.auto{background:#eefbea;border-color:#b7e2b0}
 .addrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:10px;border:2px dashed #b9c9e8;border-radius:12px}
 .addrow b{font-size:13px}.addrow button{background:var(--g);padding:6px 10px;font-size:13px}
 .dup{background:#6b7fa8;padding:6px 10px}.cnt{font-weight:700;color:#5b6b8c;font-size:13px}
+.help{background:#fff8e1;border:2px dashed var(--o);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px;line-height:1.5}.ck input{width:22px;height:22px}.ck{display:flex;align-items:center;gap:4px;background:#e6f7e3;padding:4px 8px;border-radius:8px}
 </style>
 </head>
 <body>
@@ -47,7 +48,7 @@ LS.challenges = (LS.challenges || [{ type: "game", title: "Game" }]).filter(c =>
 const C = LS.challenges, list = document.getElementById("list");
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const raw = o => (o && (o.en || o.id)) || "";
-const TL = { choice: "Multiple choice", text: "Type the answer", dropdown: "Dropdown (fill the blank)", match: "Matching", order: "Ordering" };
+const TL = { choice: "🔘 Pilihan ganda", text: "⌨️ Isian singkat", dropdown: "🔽 Isi titik-titik", match: "🔗 Menjodohkan", order: "🔢 Mengurutkan" };
 const E = () => ({ en: "", id: "" });
 const D = {
   opt: () => ({ t: E(), img: "", ok: false }), card: () => ({ t: E() }), pair: () => ({ l: E(), r: E() }), blank: () => ({ opts: "" }),
@@ -66,7 +67,15 @@ const pic = (p, u, lab) => `<label class="file">🖼 ${lab}<input type="file" ac
 const del = p => `<button class="x" data-a="del" data-p="${p}">×</button>`;
 const add = (p, n, lab) => `<button class="add" data-a="push" data-p="${p}" data-n="${n}">+ ${lab}</button>`;
 
-function qForm(q, b) {
+const HELP = {
+  choice: "<b>Cara membuat:</b> ① tulis pertanyaan di kotak paling atas ② tulis tiap pilihan jawaban ③ <b>centang ✔ pada jawaban yang BENAR</b> (boleh lebih dari satu). Tombol <i>+ Option</i> menambah pilihan.",
+  text: "<b>Cara membuat:</b> ① tulis pertanyaan ② di kotak bawah tulis <b>jawaban yang benar</b>. Kalau ada beberapa jawaban yang boleh, pisahkan dengan koma (contoh: <i>kucing, cat</i>). Dikosongkan = tidak dinilai, hanya dicatat.",
+  dropdown: "<b>Cara membuat:</b> ① tulis kalimat, ganti bagian yang dikosongkan dengan <b>___</b> (3 garis bawah) ② isi pilihan tiap kotak, dipisah koma. <b>Pilihan PERTAMA = jawaban benar</b> (murid melihatnya diacak).",
+  match: "<b>Cara membuat:</b> ① tulis perintah soal ② isi pasangan satu baris satu: kiri ↔ kanan. <b>Pasangan yang kamu tulis = jawaban benar</b> (murid melihatnya diacak).",
+  order: "<b>Cara membuat:</b> ① tulis perintah soal ② tulis kartu sesuai <b>URUTAN YANG BENAR</b> dari atas ke bawah (murid melihatnya diacak). Kartu tambahan = pengecoh (opsional)."
+};
+function qForm(q, b) { return qForm0(q, b).replace('<div class="row">', `<div class="help">${HELP[q.type] || ""}</div><div class="row">`).replace("> ✔</label>", "> ✔ benar</label>"); }
+function qForm0(q, b) {
   const num = +b.split(".").pop() + 1;
   let h = `<div class="q"><div class="qh"><span class="tag">Question ${num} · ${TL[q.type]}</span><span><button class="dup" data-a="dup" data-p="${b}">⧉ Duplicate</button> ${del(b)}</span></div><div class="row">${bi(b + ".q", q.q, "Question")}</div><div class="row">${pic(b + ".img", q.img, "Picture")}</div>`;
   if (q.type === "choice") h += q.options.map((o, k) => `<div class="row"><label class="ck"><input type="checkbox" data-p="${b}.options.${k}.ok" ${o.ok ? "checked" : ""}> ✔</label>${bi(`${b}.options.${k}.t`, o.t, "Option " + (k + 1))}${pic(`${b}.options.${k}.img`, o.img, "Pic")}${q.options.length > 2 ? del(`${b}.options.${k}`) : ""}</div>`).join("") + add(b + ".options", "opt", "Option") + `<p class="hint">Tick ✔ on every correct option (one ✔ = single answer, more = multi-select).</p>`;
