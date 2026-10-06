@@ -19,7 +19,7 @@ input[type=text]{padding:8px 10px;border:2px solid #cfdcf3;border-radius:8px;fon
 input.wide{width:100%;flex:none}
 .bi{display:flex;gap:6px;flex:1;min-width:240px}
 button,select{padding:8px 12px;border:0;border-radius:8px;background:var(--b);color:#fff;font-weight:700;cursor:pointer;font:inherit;font-weight:700}
-button.x{background:#e0483e;padding:6px 10px}.add{background:var(--g)}.main{background:var(--o)}
+button[disabled]{opacity:.35;cursor:not-allowed}.order{border-top-color:var(--o)}button.x{background:#e0483e;padding:6px 10px}.add{background:var(--g)}.main{background:var(--o)}
 select.addq{background:var(--g)}
 .file{background:#e6edfa;color:var(--b);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px}.file input{display:none}
 img{max-height:56px;border-radius:6px}
@@ -35,7 +35,12 @@ input.auto{background:#eefbea;border-color:#b7e2b0}
 </head>
 <body>
 <div class="top"><a href="admin.html">← Back</a><h2 id="t"></h2><button class="add" id="tr">🌐 Translate</button><button class="main" id="save">SAVE</button></div>
-<div class="w"><div id="list"></div>
+<div class="w">
+  <div class="c order"><b>🔀 Urutan challenge</b>
+    <p class="hint">Atur urutan lewat tombol <b>⬆ Naik</b> / <b>⬇ Turun</b> di tiap challenge (misal Quiz dulu baru Game, atau sebaliknya). Urutan yang tampil di bawah = urutan yang dilihat murid. Setelah selesai tekan <b>SAVE</b> lalu <b>RE-PUBLISH</b>.</p>
+    <label class="ck"><input type="checkbox" id="lock"> 🔒 Kunci urutan: murid harus menyelesaikan challenge sebelumnya dulu</label>
+  </div>
+  <div id="list"></div>
   <div class="row"><button class="add" data-a="addgame">+ Game</button><button class="add" data-a="addquiz">+ Quiz / Exit Ticket</button></div></div>
 <script src="api.js"></script>
 <script src="translate.js"></script>
@@ -58,7 +63,11 @@ function norm(q) {
   if (q.type) return q;
   return { type: "choice", q: { en: q.q || "", id: "" }, img: q.img || "", options: (q.options || []).map((o, k) => ({ t: { en: o.text || "", id: "" }, img: o.img || "", ok: k === q.correct })) };
 }
-C.forEach(c => { if (c.type === "quiz") c.questions = c.questions.map(norm); });
+const newId = () => Math.random().toString(36).slice(2, 8);
+C.forEach(c => { if (!c.cid) c.cid = newId(); if (c.type === "quiz") c.questions = c.questions.map(norm); });
+const lockBox = document.getElementById("lock");
+lockBox.checked = !!LS.lockOrder;
+lockBox.onchange = () => { LS.lockOrder = lockBox.checked; };
 const walk = a => a.reduce((o, k) => o[k], C);
 const setPath = (p, v) => { const a = p.split("."), k = a.pop(); walk(a)[k] = v; };
 
@@ -91,7 +100,7 @@ function render() {
   document.getElementById("t").textContent = LS.title;
   list.innerHTML = C.map((c, i) => `<div class="c"><div class="h"><b>${i + 1}. ${c.type === "game" ? "🎮" : "❓"}</b><input type="text" data-p="${i}.title" value="${esc(c.title)}">
     ${c.type === "quiz" ? `<span class="cnt">${c.questions.length} question${c.questions.length === 1 ? "" : "s"}</span>` : ""}
-    <button data-a="up" data-p="${i}">↑</button><button data-a="dn" data-p="${i}">↓</button><button class="x" data-a="delc" data-p="${i}">Delete</button></div>` +
+    <button data-a="up" data-p="${i}" ${i === 0 ? "disabled" : ""}>⬆ Naik</button><button data-a="dn" data-p="${i}" ${i === C.length - 1 ? "disabled" : ""}>⬇ Turun</button><button class="x" data-a="delc" data-p="${i}">Delete</button></div>` +
     (c.type === "game" ? "<p>Students play the levels you built in the Level Editor.</p>" :
       c.questions.map((q, j) => qForm(q, `${i}.questions.${j}`)).join("") +
       `<div class="addrow"><b>+ Add question:</b>${Object.keys(TL).map(k => `<button data-a="addq" data-p="${i}.questions" data-t="${k}">${TL[k]}</button>`).join("")}</div>` +
@@ -110,8 +119,8 @@ list.addEventListener("change", async e => {
 document.body.addEventListener("click", e => {
   const b = e.target.closest("button[data-a]"); if (!b) return;
   const a = b.dataset.a, p = b.dataset.p;
-  if (a === "addgame") { if (C.some(c => c.type === "game")) return alert("Only one Game per lesson."); C.push({ type: "game", title: "Game" }); }
-  if (a === "addquiz") C.push({ type: "quiz", title: "Quiz", questions: [D.q("choice")] });
+  if (a === "addgame") { if (C.some(c => c.type === "game")) return alert("Only one Game per lesson."); C.push({ type: "game", title: "Game", cid: newId() }); }
+  if (a === "addquiz") C.push({ type: "quiz", title: "Quiz", cid: newId(), questions: [D.q("choice")] });
   if (a === "up" || a === "dn" || a === "delc") {
     const i = +p;
     if (a === "up" && i > 0) C.splice(i - 1, 0, C.splice(i, 1)[0]);

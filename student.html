@@ -26,6 +26,9 @@ input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px sol
 .node{width:130px;background:none;color:var(--n);box-shadow:none;padding:0;font-size:16px}
 .node span{display:grid;place-items:center;width:92px;height:92px;margin:0 auto 6px;border-radius:50%;font-size:38px;color:#fff;box-shadow:0 7px 0 #0003}
 .c0 span{background:var(--o)}.c1 span{background:var(--g)}.c2 span{background:var(--b)}
+.node small{font-size:.8em;opacity:.8}.node.locked{opacity:.45;filter:grayscale(.7)}.node.locked span{background:#8a94a6!important}
+.lo{padding:4px 12px;font-size:15px;background:#fff;color:var(--n);border:3px solid var(--n);box-shadow:none;margin-top:10px}
+.rv{padding:10px 12px;margin:8px 0;border-radius:14px;background:#f7f9ff;border:3px solid #dbe4f5}.rv.g{border-color:var(--g);background:#e6f7e3}.rv.b{border-color:#e0483e;background:#fdeceb}.rv i{display:block;margin-top:4px}
 .done{text-align:center;font-size:24px;font-weight:800;color:var(--g)}
 .steps{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:14px;flex-wrap:wrap}
 .steps i{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#dbe4f5;font-style:normal;font-weight:800}
@@ -61,8 +64,8 @@ header b::before{content:"🤖 "}.steps i{width:42px;height:42px;font-size:18px}
 <script>
 const CLASSES = ["G4 Torenia", "G4 Evodia", "G4 Lasiandra", "G4 Salvia"]; // ubah daftar kelas di sini
 const P = new URLSearchParams(location.search), LID = P.get("lesson"), app = document.getElementById("app");
-let S = JSON.parse(sessionStorage.getItem("robotStudent") || "null"), L = null, view = null, lang = localStorage.getItem("robotLang") || "en";
-const save = () => sessionStorage.setItem("robotStudent", JSON.stringify(S));
+let S = JSON.parse(localStorage.getItem("robotStudent") || sessionStorage.getItem("robotStudent") || "null"), L = null, view = null, lang = localStorage.getItem("robotLang") || "en";
+const save = () => localStorage.setItem("robotStudent", JSON.stringify(S));
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const raw = o => (o && (o.en || o.id)) || "";
 // English selalu jadi teks utama; terjemahan Indonesia ada di bawahnya (disembunyikan sampai tombol ID ditekan)
@@ -73,7 +76,10 @@ const UI = {
   good: { en: "Great job! 🎉", id: "Hebat! 🎉" }, bad: { en: "Not quite. Keep learning! 💪", id: "Belum tepat. Terus belajar! 💪" }, saved: { en: "Answer saved ✅", id: "Jawaban tersimpan ✅" },
   ans: { en: "Please answer first.", id: "Jawab dulu ya." }, all: { en: "All done!", id: "Semua selesai!" }, addbox: { en: "+ Add box", id: "+ Tambah kotak" },
   type: { en: "Type your answer", id: "Ketik jawabanmu" }, fill: { en: "Fill in your name and class first.", id: "Isi nama dan kelas dulu ya." },
-  err: { en: "Lesson not found. Ask your teacher for a new link.", id: "Lesson tidak ditemukan. Minta link baru ke gurumu." }, load: { en: "Loading...", id: "Memuat..." }
+  err: { en: "Lesson not found. Ask your teacher for a new link.", id: "Lesson tidak ditemukan. Minta link baru ke gurumu." }, load: { en: "Loading...", id: "Memuat..." },
+  locked: { en: "Finish the previous challenge first 🔒", id: "Selesaikan challenge sebelumnya dulu 🔒" },
+  sw: { en: "Not you? Change name", id: "Bukan kamu? Ganti nama" }, retry: { en: "TRY AGAIN", id: "ULANGI" },
+  sure: { en: "Start this quiz again? Your old answers will be replaced.", id: "Ulangi quiz ini? Jawaban lama akan diganti." }, bonus: { en: "bonus", id: "bonus" }
 };
 const U = k => T(UI[k]), msg = k => lang === "id" ? UI[k].id + "\n" + UI[k].en : UI[k].en, plain = k => lang === "id" ? UI[k].en + " / " + UI[k].id : UI[k].en;
 const send = items => api("submit", { lessonId: L.id, lessonTitle: L.title, name: S.name, cls: S.cls, items }).catch(() => {});
@@ -189,9 +195,24 @@ async function init() {
   shell(`<div class="card"><h2>⏳ ${U("load")}</h2></div>`);
   try { await fetchLesson(); begin(); } catch (e) { shell(`<div class="card"><h2>${U("err")}</h2></div>`); }
 }
+// ---- progress tersimpan di browser (per murid: nama + kelas) ----
+const cidOf = (c, i) => c.cid || "i" + i;
+const nLv = () => Math.max(1, (L.levels || []).length);
+const bonusN = () => Math.max(0, Math.min(nLv() - 1, Math.floor(+L.bonusLevels || 0)));
+const readJ = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
+const quizSig = c => c.questions.map(q => raw(q.q) || "").join("|");
+function stat(c, i) {
+  if (c.type === "game") {
+    const p = readJ(progKey(LID, S, "Game")), comp = p ? (p.completed || []).map(Number) : [], reg = nLv() - bonusN(), b = bonusN();
+    const dr = comp.filter(n => n >= 1 && n <= reg).length, db = comp.filter(n => n > reg && n <= nLv()).length;
+    return { done: dr >= reg, txt: `${dr}/${reg}` + (b ? ` · ⭐ ${db}/${b}` : "") };
+  }
+  const p = readJ(progKey(LID, S, "Quiz" + cidOf(c, i))), tot = c.questions.length, n = p && p.sig === quizSig(c) ? Object.keys(p.res || {}).length : 0;
+  return { done: n >= tot && tot > 0, txt: `${n}/${tot}` };
+}
 function begin() {
-  if (!S || S.lesson !== LID || !S.done) { showLogin(); return; }
-  if (P.get("done") === "game") { S.done[L.challenges.findIndex(c => c.type === "game")] = true; save(); history.replaceState(null, "", "student.html?lesson=" + LID); }
+  if (!S || S.lesson !== LID || !S.name) { showLogin(); return; }
+  history.replaceState(null, "", "student.html?lesson=" + encodeURIComponent(LID));
   showHub();
 }
 function showLogin() {
@@ -201,31 +222,50 @@ function showLogin() {
   document.getElementById("go").onclick = () => {
     const n = document.getElementById("n").value.trim(), k = document.getElementById("k").value;
     if (!n || !k) { alert(msg("fill")); return; }
-    S = { lesson: LID, name: n, cls: k, done: {} }; save(); showHub();
+    S = { lesson: LID, name: n, cls: k }; save(); showHub();
   };
 }
 function showHub() {
-  view = showHub; const d = S.done, n = L.challenges.length, got = L.challenges.filter((_, i) => d[i]).length;
-  shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div></div>
-    <div class="mascot"><span>🤖</span><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => `<button class="node c${i % 3}${!d[i] && L.challenges.findIndex((_, k) => !d[k]) === i ? " next" : ""}" data-i="${i}"><span>${d[i] ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}</button>`).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
+  view = showHub;
+  const st = L.challenges.map(stat), n = L.challenges.length, got = st.filter(x => x.done).length;
+  const lockedAt = i => !!L.lockOrder && st.slice(0, i).some(x => !x.done);
+  const nextI = L.challenges.findIndex((_, k) => !st[k].done && !lockedAt(k));
+  shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div><button class="lo" id="lo" type="button">↩ ${plain("sw")}</button></div>
+    <div class="mascot"><span>🤖</span><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => { const lk = lockedAt(i); return `<button class="node c${i % 3}${i === nextI ? " next" : ""}${lk ? " locked" : ""}" data-i="${i}"><span>${lk ? "🔒" : st[i].done ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}<small>${st[i].txt}</small></button>`; }).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
+  document.getElementById("lo").onclick = () => { S = null; localStorage.removeItem("robotStudent"); sessionStorage.removeItem("robotStudent"); showLogin(); };
   app.querySelectorAll(".node").forEach(b => b.onclick = () => {
     const i = +b.dataset.i, c = L.challenges[i];
+    if (lockedAt(i)) { alert(msg("locked")); return; }
     if (c.type === "game") location.href = "index.html?lesson=" + encodeURIComponent(LID) + "&student=1"; else startQuiz(i);
   });
 }
 function startQuiz(ci) {
-  const c = L.challenges[ci], Q = c.questions; let qi = 0, stars = 0;
+  const c = L.challenges[ci], Q = c.questions, key = progKey(LID, S, "Quiz" + cidOf(c, ci)), sig = quizSig(c);
+  let PR = readJ(key); if (!PR || PR.sig !== sig || !PR.res) PR = { sig, res: {} };
+  const persist = () => { try { localStorage.setItem(key, JSON.stringify(PR)); } catch (e) {} };
+  const stars = () => Object.values(PR.res).filter(r => r.ok === true).length;
+  let qi = Q.findIndex((_, k) => !PR.res[k]);
+  const review = () => {
+    view = null;
+    shell(`<div class="steps"><button class="back" id="bk">←</button><span class="st">⭐ ${stars()} / ${Q.length}</span></div>
+      <div class="card"><h2>${esc(c.title)} ✅</h2>${Q.map((q, k) => { const r = PR.res[k] || {}; return `<div class="rv ${r.ok === true ? "g" : r.ok === false ? "b" : ""}"><b>${k + 1}.</b> ${T(q.q)}<i>${esc(r.text)} ${r.ok === true ? "✅" : r.ok === false ? "❌" : "📝"}</i></div>`; }).join("")}</div>
+      <button class="go" id="rt">${U("retry")}</button>`, true);
+    document.getElementById("bk").onclick = showHub;
+    document.getElementById("rt").onclick = () => { if (!confirm(msg("sure"))) return; PR = { sig, res: {} }; persist(); startQuiz(ci); };
+  };
+  if (qi < 0) { review(); return; }
   const draw = () => {
     view = null; const q = Q[qi], ty = TYPES[q.type] || TYPES.choice, last = qi === Q.length - 1; let locked = false;
-    shell(`<div class="steps"><button class="back" id="bk">←</button>${Q.map((_, k) => `<i class="${k < qi ? "ok" : k === qi ? "cur" : ""}">${k < qi ? "✓" : k + 1}</i>`).join("")}<span class="st">⭐ ${stars}</span></div>
+    shell(`<div class="steps"><button class="back" id="bk">←</button>${Q.map((_, k) => `<i class="${k < qi ? "ok" : k === qi ? "cur" : ""}">${k < qi ? "✓" : k + 1}</i>`).join("")}<span class="st">⭐ ${stars()}</span></div>
       <div class="qa">${q.img || !ty.own ? `<div class="card q">${q.img ? `<img src="${esc(q.img)}">` : ""}${ty.own ? "" : `<h2>${T(q.q)}</h2>`}</div>` : ""}
       <div class="card" id="area">${ty.draw(q)}</div></div><div id="fb"></div><button class="go" id="go">${U("check")}</button>`, true);
     const area = document.getElementById("area"), h = ty.bind(area, q), go = document.getElementById("go"), fb = document.getElementById("fb");
     document.getElementById("bk").onclick = showHub;
     go.onclick = () => {
-      if (locked) { if (!last) { qi++; draw(); } else { S.done[ci] = true; save(); showHub(); } return; }
+      if (locked) { if (!last) { qi++; draw(); } else { showHub(); } return; }
       const r = h.get(); if (!r.done) { alert(msg("ans")); return; }
-      locked = true; area.classList.add("lock"); h.show(); if (r.ok) { stars++; confetti(); } else if (r.ok === false) area.classList.add("shake");
+      locked = true; area.classList.add("lock"); h.show(); if (r.ok) confetti(); else if (r.ok === false) area.classList.add("shake");
+      PR.res[qi] = { ok: r.ok, text: r.text }; persist();
       fb.className = r.ok === false ? "bad" : "good"; fb.innerHTML = r.ok === true ? U("good") : r.ok === false ? U("bad") : U("saved");
       go.innerHTML = last ? U("finish") : U("next");
       send([{ challenge: c.title, no: qi + 1, question: raw(q.q), answer: r.text, status: r.ok === true ? "benar" : r.ok === false ? "salah" : "tidak dinilai", score: r.ok === true ? 1 : r.ok === false ? 0 : "" }]);

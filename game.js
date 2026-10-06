@@ -153,7 +153,7 @@ const lessonId =
 
 const isStudentMode = urlParams.get("student") === "1";
 const storedLessons = isStudentMode
-    ? [JSON.parse(sessionStorage.getItem("robotStudentLesson") || "null")].filter(Boolean)
+    ? [JSON.parse(sessionStorage.getItem("robotStudentLesson") || localStorage.getItem("lesson_" + lessonId) || "null")].filter(Boolean)
     : JSON.parse(localStorage.getItem("robotLessons")) || [];
 
 const selectedLesson =
@@ -664,6 +664,41 @@ normalizeEditorLevels();
 
 
 /* =========================================================
+   BONUS LEVELS
+   Admin mengatur jumlah level bonus (level paling akhir)
+   lewat Level Editor -> lesson.bonusLevels.
+   Level bonus ditandai bintang dan tidak wajib untuk
+   menyelesaikan game.
+========================================================= */
+
+const bonusCount =
+    Math.max(
+        0,
+        Math.min(
+            levels.length - 1,
+            Math.floor(
+                Number(
+                    selectedLesson &&
+                    selectedLesson.bonusLevels
+                ) || 0
+            )
+        )
+    );
+
+const regularCount =
+    levels.length - bonusCount;
+
+levels.forEach(
+    function(level, index) {
+
+        level.bonus =
+            index >= regularCount;
+
+    }
+);
+
+
+/* =========================================================
    GAME STATE
 ========================================================= */
 
@@ -686,6 +721,132 @@ let hasCollided = false;
 let draggedProgramBlock = null;
 
 let savedPrograms = {};
+
+
+/* =========================================================
+   SAVE / RESTORE PROGRESS (mode murid)
+   Kode blok, level yang sudah selesai, dan level yang sedang
+   dibuka disimpan di browser per murid (nama + kelas), jadi
+   tidak hilang saat murid kembali ke halaman utama / ke quiz.
+========================================================= */
+
+const studentInfo =
+    isStudentMode
+        ? JSON.parse(localStorage.getItem("robotStudent") || sessionStorage.getItem("robotStudent") || "null")
+        : null;
+
+const progressKey =
+    studentInfo && studentInfo.name
+        ? progKey(lessonId, studentInfo, "Game")
+        : null;
+
+let suspendSave = true;
+
+let persistTimer = null;
+
+
+function persistProgress() {
+
+    if (!progressKey || suspendSave) {
+
+        return;
+
+    }
+
+    try {
+
+        saveCurrentProgram();
+
+        localStorage.setItem(
+            progressKey,
+            JSON.stringify({
+                completed: completedLevels,
+                programs: savedPrograms,
+                current: currentLevel,
+                t: Date.now()
+            })
+        );
+
+    } catch (error) {}
+
+}
+
+
+function schedulePersist() {
+
+    if (!progressKey) {
+
+        return;
+
+    }
+
+    clearTimeout(persistTimer);
+
+    persistTimer = setTimeout(
+        persistProgress,
+        250
+    );
+
+}
+
+
+if (progressKey) {
+
+    try {
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(progressKey) || "null"
+            );
+
+        if (saved) {
+
+            const validNumbers =
+                levels.map(
+                    function(level) {
+
+                        return Number(level.level);
+
+                    }
+                );
+
+            completedLevels =
+                (saved.completed || [])
+                    .map(Number)
+                    .filter(
+                        function(n) {
+
+                            return validNumbers.includes(n);
+
+                        }
+                    );
+
+            savedPrograms =
+                saved.programs || {};
+
+            const savedCurrent =
+                Number(saved.current);
+
+            const unlocked =
+                savedCurrent === 1 ||
+                completedLevels.includes(savedCurrent) ||
+                completedLevels.includes(savedCurrent - 1);
+
+            if (
+                validNumbers.includes(savedCurrent) &&
+                unlocked
+            ) {
+
+                currentLevel =
+                    savedCurrent;
+
+            }
+
+        }
+
+    } catch (error) {}
+
+}
 
 
 /* =========================================================
@@ -2432,11 +2593,21 @@ function completeLevel() {
     updateLevelButtons();
 
 
+    const finishedLevel =
+        getCurrentLevel();
+
+    const isBonus =
+        Boolean(finishedLevel && finishedLevel.bonus);
+
     messageTitle.textContent =
-        "Level Complete!";
+        isBonus
+            ? "Bonus Level Complete! ⭐"
+            : "Level Complete!";
 
     messageText.textContent =
-        "Great job! You reached the goal.";
+        isBonus
+            ? "Amazing! You cleared a bonus level."
+            : "Great job! You reached the goal.";
 
     nextLevelButton.style.display =
         "inline-block";
@@ -2449,6 +2620,19 @@ function completeLevel() {
 
         nextLevelButton.textContent =
             "DONE";
+
+    }
+
+    else if (
+        !isBonus &&
+        currentLevel === regularCount
+    ) {
+
+        messageText.textContent =
+            "Great job! Bonus levels are now open ⭐";
+
+        nextLevelButton.textContent =
+            "BONUS LEVEL ⭐";
 
     }
 
@@ -2631,8 +2815,26 @@ function createLevelButtons() {
             button.dataset.level =
                 level.level;
 
-            button.textContent =
-                level.level;
+            if (level.bonus) {
+
+                button.classList.add(
+                    "bonus"
+                );
+
+                button.textContent =
+                    "★";
+
+                button.title =
+                    "Bonus level " + level.level;
+
+            }
+
+            else {
+
+                button.textContent =
+                    level.level;
+
+            }
 
 
             button.addEventListener(
@@ -4615,36 +4817,65 @@ requestAnimationFrame(
 );
 
 /* =========================================================
-   STUDENT MODE (name/class, progress to Google Sheet)
+   STUDENT MODE (nama/kelas, progress ke Google Sheet)
 ========================================================= */
 if (isStudentMode) {
-    const st = JSON.parse(sessionStorage.getItem("robotStudent") || "{}");
+    const st = studentInfo || {};
     const hub = "student.html?lesson=" + encodeURIComponent(lessonId);
     if (!st.name) { window.location.href = hub; }
 
+    // --- selesai level: kirim ke sheet (1x per level) + simpan progress ---
     const _completeLevel = completeLevel;
     completeLevel = function () {
         const first = !levelCompleted;
+        const already = completedLevels.includes(currentLevel);
+        const lv = getCurrentLevel();
         _completeLevel();
         if (first && levelCompleted) {
-            const n = (blockCounter.textContent.match(/\d+/) || [0])[0];
-            api("submit", {
-                lessonId: selectedLesson.id, lessonTitle: selectedLesson.title,
-                name: st.name, cls: st.cls,
-                items: [{ challenge: "Game", question: "Level " + currentLevel, answer: "Selesai, " + n + " blok", no: currentLevel, status: "selesai", score: 1 }]
-            }).catch(function () {});
+            persistProgress();
+            if (!already) {
+                const n = (blockCounter.textContent.match(/\d+/) || [0])[0];
+                api("submit", {
+                    lessonId: selectedLesson.id, lessonTitle: selectedLesson.title,
+                    name: st.name, cls: st.cls,
+                    items: [{ challenge: "Game", question: "Level " + currentLevel, answer: "Selesai, " + n + " blok", no: currentLevel, status: "selesai", score: 1, bonus: !!(lv && lv.bonus) }]
+                }).catch(function () {});
+            }
         }
     };
 
+    // --- pindah level: jangan simpan program saat transisi ---
+    const _loadLevel = loadLevel;
+    loadLevel = function (n) {
+        suspendSave = true;
+        _loadLevel(n);
+        requestAnimationFrame(function () { requestAnimationFrame(function () { suspendSave = false; persistProgress(); }); });
+    };
+
+    // --- simpan setiap ada perubahan blok / angka repeat ---
+    const _updateBlockCounter = updateBlockCounter;
+    updateBlockCounter = function () { _updateBlockCounter(); schedulePersist(); };
+    program.addEventListener("input", schedulePersist);
+    program.addEventListener("change", schedulePersist);
+    window.addEventListener("pagehide", persistProgress);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") persistProgress(); });
+
+    // --- level terakhir -> balik ke halaman utama murid ---
     document.addEventListener("click", function (e) {
         if (e.target.closest("#next-level-button") && currentLevel === levels.length && levelCompleted) {
             e.stopPropagation();
-            window.location.href = hub + "&done=game";
+            persistProgress();
+            window.location.href = hub;
         }
     }, true);
 
     const bb = document.getElementById("back-button");
     const nb = bb.cloneNode(true);
     bb.replaceWith(nb);
-    nb.onclick = function () { window.location.href = hub; };
+    nb.onclick = function () { persistProgress(); window.location.href = hub; };
+
+    // restore selesai -> izinkan penyimpanan
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () { suspendSave = false; });
+    });
 }

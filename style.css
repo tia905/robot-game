@@ -92,6 +92,34 @@ body {
     transform: scale(1.05);
 }
 
+/* Level bonus = bintang */
+.level.bonus {
+    font-size: 20px;
+    line-height: 1;
+    background: #ffd54a;
+    color: #7a4a00;
+    box-shadow: 0 0 0 2px #f0a800 inset;
+}
+
+.level.bonus.current {
+    background: #0d1b2a;
+    color: #ffd54a;
+    border: 3px solid #ffd54a;
+    box-shadow: none;
+}
+
+.level.bonus.completed {
+    background: #25b84b;
+    color: #fff3b0;
+    box-shadow: none;
+}
+
+.level.bonus.locked {
+    background: #5a6570;
+    color: #c9b66a;
+    box-shadow: none;
+}
+
 /* =========================================================
    MAIN
 ========================================================= */

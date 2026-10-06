@@ -934,6 +934,92 @@ function loadCurrentLevel() {
 
 
 /* =========================================================
+   BONUS LEVELS
+========================================================= */
+
+function getBonusCount() {
+
+    const max =
+        Math.max(
+            0,
+            lesson.levels.length - 1
+        );
+
+    return Math.max(
+        0,
+        Math.min(
+            max,
+            Math.floor(
+                Number(lesson.bonusLevels) || 0
+            )
+        )
+    );
+
+}
+
+
+const bonusInput =
+    document.getElementById("bonus-levels");
+
+if (bonusInput) {
+
+    bonusInput.value =
+        getBonusCount();
+
+    bonusInput.addEventListener(
+        "input",
+        function() {
+
+            const max =
+                Math.max(
+                    0,
+                    lesson.levels.length - 1
+                );
+
+            let value =
+                Math.floor(
+                    Number(bonusInput.value) || 0
+                );
+
+            value =
+                Math.max(
+                    0,
+                    Math.min(
+                        max,
+                        value
+                    )
+                );
+
+            lesson.bonusLevels =
+                value;
+
+            localStorage.setItem(
+                "robotLessons",
+                JSON.stringify(lessons)
+            );
+
+            saveStatus.textContent =
+                "Saved";
+
+            renderLevelList();
+
+        }
+    );
+
+    bonusInput.addEventListener(
+        "change",
+        function() {
+
+            bonusInput.value =
+                getBonusCount();
+
+        }
+    );
+
+}
+
+
+/* =========================================================
    LEVEL LIST
 ========================================================= */
 
@@ -969,6 +1055,15 @@ function renderLevelList() {
             button.textContent =
                 level.title ||
                 `Level ${index + 1}`;
+
+
+            if (index >= lesson.levels.length - getBonusCount()) {
+
+                button.classList.add(
+                    "is-bonus"
+                );
+
+            }
 
 
             button.addEventListener(
@@ -2691,6 +2786,16 @@ backButton.addEventListener(
 ========================================================= */
 
 prepareLevels();
+
+if (bonusInput) {
+
+    bonusInput.max =
+        Math.max(0, lesson.levels.length - 1);
+
+    bonusInput.value =
+        getBonusCount();
+
+}
 
 loadLessonInfo();
 

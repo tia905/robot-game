@@ -14,3 +14,9 @@ async function apiGet(action, params) {
     const r = await fetch(API_URL + "?" + new URLSearchParams(Object.assign({ action: action }, params)));
     return r.json();
 }
+
+// Kunci penyimpanan progress per murid (nama + kelas) di browser.
+// kind: "Game" atau "Quiz<id>"
+function progKey(lessonId, st, kind) {
+    return "robotProg" + kind + "_" + lessonId + "|" + String((st && st.name) || "").trim().toLowerCase() + "|" + String((st && st.cls) || "").trim();
+}

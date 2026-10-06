@@ -31,6 +31,7 @@ async function publish(l) {
     if (!key) return;
     const prev = l.status;
     if (!l.challenges || !l.challenges.length) l.challenges = [{ type: "game", title: "Game" }];
+    l.challenges.forEach(c => { if (!c.cid) c.cid = Math.random().toString(36).slice(2, 8); });
     l.status = "published";
     try {
         try { await autoTranslate(l, key); } catch (e) { console.warn("Auto-translate skipped:", e.message); }
