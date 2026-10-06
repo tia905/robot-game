@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Robot Coding Game</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- TOP BAR -->
+    <header class="top-bar">
+
+        <button class="back-button" id="back-button">
+            ←
+        </button>
+
+        <div class="levels" id="levels">
+        </div>
+
+    </header>
+
+
+    <!-- MAIN GAME -->
+    <main class="main-game">
+
+
+        <!-- BLOCKS -->
+        <aside
+            class="blocks-panel"
+            id="blocks-area"
+        >
+
+            <h2>Blocks</h2>
+
+            <div
+                class="block"
+                draggable="true"
+                data-command="forward"
+            >
+                MOVE FORWARD
+            </div>
+
+            <div
+                class="block"
+                draggable="true"
+                data-command="left"
+            >
+                TURN LEFT
+            </div>
+
+            <div
+                class="block"
+                draggable="true"
+                data-command="right"
+            >
+                TURN RIGHT
+            </div>
+
+            <div
+                class="block repeat-source"
+                draggable="true"
+                data-command="repeat"
+            >
+                REPEAT [ 2 ] TIMES
+            </div>
+
+        </aside>
+
+
+        <!-- MY PROGRAM -->
+        <section class="program-panel">
+
+            <div class="program-header">
+
+                <h2>My Program</h2>
+
+                <span
+                    class="block-counter"
+                    id="block-counter"
+                >
+                    Blocks Used: 0
+                </span>
+
+            </div>
+
+            <div id="program">
+
+                <div class="start-block">
+                    WHEN START CLICKED
+                </div>
+
+                <div class="empty-text">
+                    Drag blocks here
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- GAME -->
+        <section class="game-panel">
+
+            <div class="game-board-wrapper">
+
+                <div id="game-board">
+
+                    <!-- MAP CELLS -->
+                    <div id="map"></div>
+
+                    <!-- ROBOT -->
+                    <img
+                        id="robot"
+                        src="assets/kanan.png"
+                        alt="Robot"
+                    >
+
+                    <!-- GOAL -->
+                    <div id="goal">
+                        ⭐
+                    </div>
+
+                    <!-- MESSAGE -->
+                    <div
+                        id="game-message"
+                        class="game-message hidden"
+                    >
+
+                        <div class="message-box">
+
+                            <!-- CLOSE BUTTON -->
+                            <button
+                                type="button"
+                                id="close-message-button"
+                                class="close-message-button"
+                                aria-label="Close message"
+                            >
+                                ×
+                            </button>
+
+                            <div class="message-icon">
+                                ⭐
+                            </div>
+
+                            <h2 id="message-title">
+                                Level Complete!
+                            </h2>
+
+                            <p id="message-text">
+                                Great job!
+                            </p>
+
+                            <button
+                                id="next-level-button"
+                                type="button"
+                            >
+                                NEXT LEVEL
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- CONTROLS -->
+            <div class="game-controls">
+
+                <button
+                    id="run-button"
+                    class="run-button"
+                >
+                    ▶
+                </button>
+
+                <button
+                    id="reset-button"
+                    class="reset-button"
+                >
+                    RESET
+                </button>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <script src="api.js"></script>
+    <script src="game.js"></script>
+
+</body>
+
+</html>

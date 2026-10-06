@@ -1,0 +1,453 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f5f2;
+    color: #26352f;
+}
+
+
+/* HEADER */
+
+.admin-header {
+    height: 72px;
+    padding: 0 32px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    background: #ffffff;
+    border-bottom: 1px solid #dfe4df;
+}
+
+.admin-header h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.admin-header p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #78827d;
+}
+
+
+/* MAIN */
+
+.admin-main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 32px;
+}
+
+.page-title h2 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.page-title p {
+    margin-top: 8px;
+    color: #78827d;
+}
+
+
+/* BUTTONS */
+
+.primary-button,
+.secondary-button {
+    border: none;
+    border-radius: 8px;
+
+    padding: 11px 18px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.primary-button {
+    background: #315b4c;
+    color: white;
+}
+
+.primary-button:hover {
+    background: #264b3e;
+}
+
+.secondary-button {
+    background: #e8ece9;
+    color: #35433d;
+}
+
+.secondary-button:hover {
+    background: #dde3df;
+}
+
+
+/* LESSON LIST */
+
+.lesson-list {
+    margin-top: 28px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 14px;
+}
+
+
+.lesson-card {
+    background: white;
+
+    border: 1px solid #dfe4df;
+    border-radius: 12px;
+
+    padding: 20px 22px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+}
+
+
+.lesson-info {
+    min-width: 0;
+}
+
+.lesson-info h3 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.lesson-info p {
+    margin: 7px 0 0;
+
+    color: #78827d;
+
+    font-size: 13px;
+}
+
+
+.lesson-meta {
+    margin-top: 10px;
+
+    display: flex;
+    gap: 8px;
+
+    align-items: center;
+
+    flex-wrap: wrap;
+
+    font-size: 12px;
+
+    color: #65716b;
+}
+
+
+.badge {
+    display: inline-block;
+
+    padding: 4px 9px;
+
+    border-radius: 20px;
+
+    font-size: 11px;
+    font-weight: 600;
+}
+
+
+.badge.draft {
+    background: #ecefed;
+    color: #65716b;
+}
+
+
+.badge.published {
+    background: #dceee5;
+    color: #315b4c;
+}
+
+
+.lesson-actions {
+    display: flex;
+    gap: 8px;
+
+    flex-shrink: 0;
+}
+
+
+.small-button {
+    border: 1px solid #d6ddd8;
+
+    background: white;
+
+    padding: 8px 12px;
+
+    border-radius: 7px;
+
+    font-size: 12px;
+
+    cursor: pointer;
+}
+
+
+.small-button:hover {
+    background: #f3f5f3;
+}
+
+
+/* DELETE BUTTON */
+
+.delete-button {
+    color: #a94444;
+    border-color: #e2caca;
+}
+
+.delete-button:hover {
+    background: #fff4f4;
+    border-color: #d9b4b4;
+}
+
+
+/* EMPTY STATE */
+
+.empty-state {
+    background: white;
+
+    border: 1px dashed #cbd4ce;
+    border-radius: 12px;
+
+    padding: 60px 20px;
+
+    text-align: center;
+
+    color: #78827d;
+}
+
+
+/* MODAL */
+
+.modal {
+    position: fixed;
+
+    inset: 0;
+
+    background: rgba(25, 35, 30, 0.35);
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    z-index: 1000;
+}
+
+
+.modal.hidden {
+    display: none;
+}
+
+
+.modal-box {
+    width: 100%;
+    max-width: 500px;
+
+    background: white;
+
+    border-radius: 14px;
+
+    padding: 24px;
+
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+
+.modal-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 24px;
+}
+
+
+.modal-header h2 {
+    margin: 0;
+}
+
+
+.close-button {
+    border: none;
+
+    background: none;
+
+    font-size: 26px;
+
+    color: #6f7974;
+
+    cursor: pointer;
+
+    line-height: 1;
+}
+
+.close-button:hover {
+    color: #26352f;
+}
+
+
+/* FORM */
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+
+.form-group label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+
+    border: 1px solid #d4dbd6;
+
+    border-radius: 8px;
+
+    padding: 11px;
+
+    font-family: inherit;
+
+    font-size: 14px;
+
+    outline: none;
+}
+
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    border-color: #315b4c;
+}
+
+
+.form-group textarea {
+    min-height: 90px;
+
+    resize: vertical;
+}
+
+
+.form-group select {
+    background: white;
+
+    color: #26352f;
+
+    cursor: pointer;
+}
+
+
+/* MODAL ACTIONS */
+
+.modal-actions {
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 10px;
+
+    margin-top: 24px;
+}
+
+
+/* DELETE CONFIRMATION */
+
+.delete-modal-box {
+    max-width: 420px;
+}
+
+
+.delete-modal-box p {
+    margin: 0;
+
+    color: #66716b;
+
+    font-size: 14px;
+
+    line-height: 1.6;
+}
+
+
+.delete-confirm-button {
+    border: none;
+
+    border-radius: 8px;
+
+    padding: 11px 18px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    background: #b84c4c;
+
+    color: white;
+
+    cursor: pointer;
+}
+
+
+.delete-confirm-button:hover {
+    background: #9f3f3f;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 700px) {
+
+    .admin-header {
+        padding: 0 18px;
+    }
+
+
+    .admin-main {
+        padding: 28px 18px;
+    }
+
+
+    .lesson-card {
+        flex-direction: column;
+
+        align-items: stretch;
+    }
+
+
+    .lesson-actions {
+        width: 100%;
+    }
+
+
+    .small-button {
+        flex: 1;
+    }
+
+}

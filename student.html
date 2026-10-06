@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot Coding Game</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#eef4ff;margin:0;display:grid;place-items:center;min-height:100vh}
+.card{background:#fff;border-radius:16px;padding:24px;width:min(460px,92vw);box-shadow:0 6px 24px #0002}
+h1{margin:0 0 6px}
+input,textarea{width:100%;box-sizing:border-box;padding:10px;margin:6px 0 12px;border:2px solid #cfd8ee;border-radius:10px;font:inherit}
+button{width:100%;padding:12px;border:0;border-radius:10px;background:#3b6fe0;color:#fff;font-weight:700;font-size:16px;cursor:pointer;margin-top:8px}
+button:disabled{background:#b7c2dc;cursor:default}
+label.o{display:block;padding:8px 10px;border:2px solid #cfd8ee;border-radius:10px;margin:6px 0}
+.q{margin:14px 0 4px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="card" id="box"></div>
+<script src="api.js"></script>
+<script>
+const P = new URLSearchParams(location.search), LID = P.get("lesson"), box = document.getElementById("box");
+let S = JSON.parse(sessionStorage.getItem("robotStudent") || "null"), L = null;
+const save = () => sessionStorage.setItem("robotStudent", JSON.stringify(S));
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function init() {
+  if (!LID) { box.innerHTML = "<h1>Link tidak valid</h1>"; return; }
+  box.innerHTML = "<p>Memuat...</p>";
+  try { const r = await apiGet("getLesson", { id: LID }); if (!r.ok) throw 0; L = r.lesson; }
+  catch (e) { box.innerHTML = "<h1>Lesson tidak ditemukan</h1><p>Minta link baru ke gurumu.</p>"; return; }
+  sessionStorage.setItem("robotStudentLesson", JSON.stringify(L));
+  if (!S || S.lesson !== LID) { showLogin(); return; }
+  if (P.get("done") === "game") { S.game = true; save(); history.replaceState(null, "", "student.html?lesson=" + LID); }
+  showHub();
+}
+
+function showLogin() {
+  box.innerHTML = `<h1>${esc(L.title)}</h1><p>${esc(L.description || "")}</p><input id="n" placeholder="Nama"><input id="k" placeholder="Kelas"><button id="go">MULAI</button>`;
+  document.getElementById("go").onclick = () => {
+    const n = document.getElementById("n").value.trim(), k = document.getElementById("k").value.trim();
+    if (!n || !k) { alert("Isi nama dan kelas dulu ya."); return; }
+    S = { lesson: LID, name: n, cls: k, game: false, exit: false }; save(); showHub();
+  };
+}
+
+function showHub() {
+  const ex = (L.challenges || []).find(c => c.type === "exit");
+  box.innerHTML = `<h1>Halo, ${esc(S.name)}!</h1><p>${esc(L.title)}</p><button id="g">${S.game ? "✓ " : ""}1. MAIN GAME</button>` +
+    (ex ? `<button id="e" ${S.game && !S.exit ? "" : "disabled"}>${S.exit ? "✓ " : ""}2. EXIT TICKET</button>` : "") +
+    (S.game && (!ex || S.exit) ? "<p><b>Semua selesai 🎉</b></p>" : "");
+  document.getElementById("g").onclick = () => location.href = "index.html?lesson=" + encodeURIComponent(LID) + "&student=1";
+  if (ex) document.getElementById("e").onclick = () => showExit(ex);
+}
+
+function showExit(ex) {
+  box.innerHTML = "<h1>Exit Ticket</h1>" + ex.questions.map((q, i) =>
+    `<div class="q">${i + 1}. ${esc(q.q)}</div>` +
+    (q.options && q.options.length
+      ? q.options.map(o => `<label class="o"><input type="radio" name="q${i}" value="${esc(o)}"> ${esc(o)}</label>`).join("")
+      : `<textarea id="a${i}" rows="3"></textarea>`)).join("") + `<button id="s">KIRIM</button>`;
+  document.getElementById("s").onclick = async () => {
+    const items = ex.questions.map((q, i) => {
+      const el = q.options && q.options.length ? document.querySelector(`input[name=q${i}]:checked`) : document.getElementById("a" + i);
+      return { challenge: "Exit Ticket", question: q.q, answer: el ? el.value.trim() : "" };
+    });
+    if (items.some(x => !x.answer)) { alert("Jawab semua pertanyaan dulu ya."); return; }
+    const b = document.getElementById("s"); b.disabled = true; b.textContent = "Mengirim...";
+    try {
+      const r = await api("submit", { lessonId: L.id, lessonTitle: L.title, name: S.name, cls: S.cls, items });
+      if (!r.ok) throw 0;
+      S.exit = true; save(); showHub();
+    } catch (e) { alert("Gagal mengirim, coba lagi."); b.disabled = false; b.textContent = "KIRIM"; }
+  };
+}
+init();
+</script>
+</body>
+</html>

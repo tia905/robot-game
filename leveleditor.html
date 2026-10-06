@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Robot Game - Level Editor</title>
+
+    <link
+        rel="stylesheet"
+        href="leveleditor.css"
+    >
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <header class="editor-header">
+
+        <button
+            id="back-button"
+            class="back-button"
+        >
+            ←
+        </button>
+
+        <div class="lesson-heading">
+
+            <h1 id="lesson-title">
+                Lesson
+            </h1>
+
+            <p id="lesson-description">
+                Level Editor
+            </p>
+
+        </div>
+
+        <div class="header-actions">
+
+            <span
+                id="save-status"
+                class="save-status"
+            >
+                Not saved
+            </span>
+
+            <button
+                id="save-button"
+                class="save-button"
+            >
+                SAVE LEVEL
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- MAIN -->
+    <main class="editor-main">
+
+        <!-- LEVEL SIDEBAR -->
+        <aside class="level-sidebar">
+
+            <h2>Levels</h2>
+
+            <p class="sidebar-description">
+                Select a level to edit.
+            </p>
+
+            <div
+                id="level-list"
+                class="level-list"
+            ></div>
+
+        </aside>
+
+
+        <!-- MAP -->
+        <section class="map-section">
+
+            <div class="section-heading">
+
+                <div>
+
+                    <h2 id="level-title">
+                        Level 1
+                    </h2>
+
+                    <p>
+                        Click the cells to build the path.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="map-editor-wrapper">
+
+                <div
+                    id="map-editor"
+                    class="map-editor"
+                ></div>
+
+            </div>
+
+
+            <!-- LEGEND -->
+            <div class="map-help">
+
+                <div class="help-item">
+
+                    <span
+                        class="help-color path-color"
+                    ></span>
+
+                    Path
+
+                </div>
+
+
+                <div class="help-item">
+
+                    <span
+                        class="help-color blocked-color"
+                    ></span>
+
+                    Blocked
+
+                </div>
+
+
+                <div class="help-item">
+
+                    <span
+                        class="help-color start-color"
+                    ></span>
+
+                    Robot
+
+                </div>
+
+
+                <div class="help-item">
+
+                    <span
+                        class="help-color goal-color"
+                    ></span>
+
+                    Goal
+
+                </div>
+
+
+                <div
+                    class="help-item building-help"
+                    id="house-legend"
+                    style="display: none;"
+                >
+
+                    <span class="help-color house-color"></span>
+
+                    House
+
+                </div>
+
+
+                <div
+                    class="help-item building-help"
+                    id="school-legend"
+                    style="display: none;"
+                >
+
+                    <span class="help-color school-color"></span>
+
+                    School
+
+                </div>
+
+
+                <div
+                    class="help-item building-help"
+                    id="garden-legend"
+                    style="display: none;"
+                >
+
+                    <span class="help-color garden-color"></span>
+
+                    Garden
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- SETTINGS -->
+        <aside class="settings-panel">
+
+            <h2>
+                Level Settings
+            </h2>
+
+
+            <!-- LEVEL NAME -->
+            <div class="setting-group">
+
+                <label for="level-name">
+                    Level Name
+                </label>
+
+                <input
+                    type="text"
+                    id="level-name"
+                    placeholder="e.g. Find the Path"
+                >
+
+            </div>
+
+
+            <!-- GRID SIZE -->
+            <div class="setting-group">
+
+                <label for="grid-size">
+                    Grid Size
+                </label>
+
+                <input
+                    type="number"
+                    id="grid-size"
+                    min="2"
+                    max="20"
+                    step="1"
+                    value="8"
+                >
+
+                <p
+                    class="setting-hint"
+                    id="grid-size-hint"
+                >
+                    Example: 8 = 8×8 grid, coordinates 0–7.
+                </p>
+
+            </div>
+
+
+            <!-- MAXIMUM BLOCKS -->
+<div class="setting-group">
+
+    <label for="max-blocks">
+        Maximum Blocks
+    </label>
+
+    <select id="max-blocks">
+
+        <option value="">
+            Without Limit
+        </option>
+
+        <option value="1">
+            1 Block
+        </option>
+
+        <option value="2">
+            2 Blocks
+        </option>
+
+        <option value="3">
+            3 Blocks
+        </option>
+
+        <option value="4">
+            4 Blocks
+        </option>
+
+        <option value="5">
+            5 Blocks
+        </option>
+
+        <option value="6">
+            6 Blocks
+        </option>
+
+        <option value="7">
+            7 Blocks
+        </option>
+
+        <option value="8">
+            8 Blocks
+        </option>
+
+        <option value="9">
+            9 Blocks
+        </option>
+
+        <option value="10">
+            10 Blocks
+        </option>
+
+        <option value="15">
+            15 Blocks
+        </option>
+
+        <option value="20">
+            20 Blocks
+        </option>
+
+        <option value="30">
+            30 Blocks
+        </option>
+
+        <option value="50">
+            50 Blocks
+        </option>
+
+    </select>
+
+    <p class="setting-hint">
+        Choose a limit or allow students to use unlimited blocks.
+    </p>
+
+</div>
+
+
+            <!-- TOOLS -->
+            <div class="setting-group">
+
+                <label>
+                    Map Tool
+                </label>
+
+                <div class="tool-buttons">
+
+                    <button
+                        class="tool-button active"
+                        data-tool="path"
+                    >
+                        PATH
+                    </button>
+
+                    <button
+                        class="tool-button"
+                        data-tool="blocked"
+                    >
+                        BLOCKED
+                    </button>
+
+                    <button
+                        class="tool-button"
+                        data-tool="start"
+                    >
+                        ROBOT
+                    </button>
+
+                    <button
+                        class="tool-button"
+                        data-tool="goal"
+                    >
+                        GOAL
+                    </button>
+
+
+                    <!-- REPETITION BUILDING TOOLS -->
+                    <button
+                        class="tool-button building-tool"
+                        data-tool="house"
+                        style="display: none;"
+                    >
+                        HOUSE
+                    </button>
+
+                    <button
+                        class="tool-button building-tool"
+                        data-tool="school"
+                        style="display: none;"
+                    >
+                        SCHOOL
+                    </button>
+
+                    <button
+                        class="tool-button building-tool"
+                        data-tool="garden"
+                        style="display: none;"
+                    >
+                        GARDEN
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- START DIRECTION -->
+            <div class="setting-group">
+
+                <label for="start-direction">
+                    Robot Starting Direction
+                </label>
+
+                <select id="start-direction">
+
+                    <option value="0">
+                        → Right
+                    </option>
+
+                    <option value="1">
+                        ↓ Down
+                    </option>
+
+                    <option value="2">
+                        ← Left
+                    </option>
+
+                    <option value="3">
+                        ↑ Up
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- AVAILABLE BLOCKS -->
+            <div class="setting-group">
+
+                <label>
+                    Available Blocks
+                </label>
+
+                <div
+                    id="available-blocks-list"
+                    class="available-blocks-list"
+                ></div>
+
+            </div>
+
+
+            <!-- INSTRUCTIONS -->
+            <div class="instructions">
+
+                <h3>
+                    How to build the map
+                </h3>
+
+                <ol>
+
+                    <li>
+                        Choose PATH.
+                    </li>
+
+                    <li>
+                        Click cells that the robot can use.
+                    </li>
+
+                    <li>
+                        Choose ROBOT and click the starting cell.
+                    </li>
+
+                    <li>
+                        Choose GOAL and click the goal cell.
+                    </li>
+
+                    <li>
+                        For Repetition, choose a building tool and click the target area.
+                    </li>
+
+                    <li>
+                        Choose the starting direction.
+                    </li>
+
+                    <li>
+                        Select the blocks students can use.
+                    </li>
+
+                    <li>
+                        Set the maximum number of blocks students can use.
+                    </li>
+
+                    <li>
+                        Click SAVE LEVEL.
+                    </li>
+
+                </ol>
+
+            </div>
+
+        </aside>
+
+    </main>
+
+
+    <script src="leveleditor.js"></script>
+
+</body>
+
+</html>

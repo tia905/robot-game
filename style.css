@@ -1,0 +1,937 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+/* =========================================================
+   TOP BAR
+========================================================= */
+
+.top-bar {
+    height: 58px;
+    background: #0d1b2a;
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding: 0 12px;
+    color: white;
+}
+
+.back-button {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 7px;
+    background: white;
+    color: #333;
+    font-size: 25px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.back-button:hover {
+    background: #eeeeee;
+}
+
+.levels {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.level {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition:
+        transform 0.15s ease,
+        background 0.15s ease;
+}
+
+.level.current {
+    width: 42px;
+    height: 42px;
+    background: #0d1b2a;
+    color: #25c84d;
+    border: 3px solid #25c84d;
+    transform: scale(1.05);
+}
+
+.level.completed {
+    background: #25b84b;
+    color: #10251a;
+}
+
+.level.locked {
+    background: #5a6570;
+    color: #aeb5bb;
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.level:not(.locked):hover {
+    transform: scale(1.05);
+}
+
+/* =========================================================
+   MAIN
+========================================================= */
+
+.main-game {
+    width: 100%;
+    height: calc(100vh - 58px);
+    display: grid;
+    grid-template-columns:
+        190px
+        minmax(360px, 1fr)
+        42%;
+    background: white;
+}
+
+/* =========================================================
+   BLOCKS PANEL
+========================================================= */
+
+.blocks-panel {
+    background: #e8e8e8;
+    padding: 14px 10px;
+    border-right: 1px solid #d0d0d0;
+    overflow-y: auto;
+}
+
+.blocks-panel h2 {
+    margin: 0 0 16px 5px;
+    font-size: 16px;
+    color: #555;
+}
+
+/* =========================================================
+   SOURCE BLOCKS
+========================================================= */
+
+.block {
+    position: relative;
+    display: block;
+    width: fit-content;
+    min-width: 145px;
+    min-height: 36px;
+    padding: 9px 13px;
+    margin-bottom: 10px;
+    background: #9250a8;
+    color: white;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 6px 6px 6px 2px;
+    cursor: grab;
+    user-select: none;
+    box-shadow:
+        0 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.block:hover {
+    filter: brightness(1.08);
+}
+
+.block:active {
+    cursor: grabbing;
+}
+
+/* =========================================================
+   SOURCE BLOCK PUZZLE SHAPE
+========================================================= */
+
+.blocks-panel .block::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: 14px;
+    width: 18px;
+    height: 8px;
+    background: #9250a8;
+    border-radius: 8px 8px 0 0;
+}
+
+.blocks-panel .block::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: 14px;
+    width: 18px;
+    height: 8px;
+    background: #9250a8;
+    border-radius: 0 0 8px 8px;
+}
+
+/* =========================================================
+   REPEAT SOURCE
+========================================================= */
+
+.blocks-panel .repeat-source {
+    background: #63a957;
+}
+
+.blocks-panel .repeat-source::before,
+.blocks-panel .repeat-source::after {
+    background: #63a957;
+}
+
+/* =========================================================
+   PROGRAM PANEL
+========================================================= */
+
+.program-panel {
+    position: relative;
+    background: white;
+    border-right: 2px solid #d0d0d0;
+    overflow-y: auto;
+}
+
+.program-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    height: 46px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+}
+
+.program-header h2 {
+    margin: 0;
+    font-size: 15px;
+    color: #777;
+}
+
+.block-counter {
+    font-size: 12px;
+    color: #999;
+}
+
+#program {
+    min-height: calc(100% - 46px);
+    padding: 18px 28px 50px;
+}
+
+/* =========================================================
+   WHEN START CLICKED
+========================================================= */
+
+.start-block {
+    position: relative;
+    width: fit-content;
+    min-width: 190px;
+    padding: 10px 15px;
+    margin: 0;
+    background: #e89b3c;
+    color: white;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 7px 7px 7px 2px;
+    box-shadow:
+        0 2px 0 rgba(0, 0, 0, 0.15);
+    z-index: 5;
+}
+
+.start-block::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: 14px;
+    width: 18px;
+    height: 8px;
+    background: #e89b3c;
+    border-radius: 0 0 8px 8px;
+    z-index: 6;
+}
+
+/* =========================================================
+   NORMAL PROGRAM BLOCKS
+========================================================= */
+
+#program > .block {
+    position: relative;
+    width: fit-content;
+    min-width: 150px;
+    margin: 0;
+    background: #9250a8;
+    z-index: 3;
+}
+
+/* =========================================================
+   BUILDING BLOCKS IN PROGRAM
+========================================================= */
+
+#program > .block[data-command="buildHouse"],
+#program > .block[data-command="buildSchool"],
+#program > .block[data-command="buildGarden"] {
+    background: #78c9e8 !important;
+}
+
+/* =========================================================
+   BUILDING BLOCK CONNECTORS IN PROGRAM
+========================================================= */
+
+#program > .block[data-command="buildHouse"]::before,
+#program > .block[data-command="buildHouse"]::after,
+#program > .block[data-command="buildSchool"]::before,
+#program > .block[data-command="buildSchool"]::after,
+#program > .block[data-command="buildGarden"]::before,
+#program > .block[data-command="buildGarden"]::after {
+    background: #78c9e8 !important;
+}
+
+/* =========================================================
+   PURPLE BLOCK AFTER ORANGE
+========================================================= */
+
+#program > .start-block + .block {
+    margin-top: -5px;
+    border-radius: 6px 6px 0 2px;
+}
+
+/* =========================================================
+   PURPLE → PURPLE
+========================================================= */
+
+#program > .block + .block {
+    margin-top: -5px;
+    border-radius: 0 0 6px 2px;
+}
+
+/* =========================================================
+   PURPLE PROGRAM CONNECTORS
+========================================================= */
+
+#program > .block::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: 14px;
+    width: 18px;
+    height: 8px;
+    background: #893ca0;
+    border-radius: 8px 8px 0 0;
+    z-index: 5;
+}
+
+#program > .block::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: 14px;
+    width: 18px;
+    height: 8px;
+    background: #9250a8;
+    border-radius: 0 0 8px 8px;
+    z-index: 5;
+}
+
+/* =========================================================
+   BUILDING CONNECTORS MUST STAY BLUE
+========================================================= */
+
+#program > .block[data-command="buildHouse"]::before,
+#program > .block[data-command="buildHouse"]::after,
+#program > .block[data-command="buildSchool"]::before,
+#program > .block[data-command="buildSchool"]::after,
+#program > .block[data-command="buildGarden"]::before,
+#program > .block[data-command="buildGarden"]::after {
+    background: #78c9e8 !important;
+}
+
+/* =========================================================
+   PURPLE → REPEAT
+========================================================= */
+
+#program > .block + .repeat-block {
+    margin-top: -5px;
+}
+
+/* =========================================================
+   REPEAT C-BLOCK
+========================================================= */
+
+.repeat-block {
+    position: relative;
+    width: fit-content;
+    min-width: 210px;
+    margin: 0;
+    padding: 0 0 8px 0;
+    background: transparent;
+    color: white;
+    z-index: 2;
+}
+
+/* =========================================================
+   REPEAT HEADER
+========================================================= */
+
+.repeat-header {
+    position: relative;
+    min-height: 36px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #63a957;
+    border-radius: 7px 7px 0 0;
+    font-size: 13px;
+    font-weight: bold;
+    z-index: 4;
+}
+
+/* =========================================================
+   REPEAT LEFT SIDE
+========================================================= */
+
+.repeat-block::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 28px;
+    bottom: 8px;
+    width: 12px;
+    background: #63a957;
+    border-radius: 0 0 0 8px;
+    z-index: 1;
+}
+
+/* =========================================================
+   REPEAT BOTTOM
+========================================================= */
+
+.repeat-block::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 8px;
+    background: #63a957;
+    border-radius: 0 0 7px 7px;
+    z-index: 1;
+}
+
+/* =========================================================
+   REPEAT NUMBER
+========================================================= */
+
+.repeat-number {
+    width: 40px;
+    height: 24px;
+    padding: 2px 4px;
+    border: none;
+    border-radius: 4px;
+    background: white;
+    color: #333;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* =========================================================
+   REPEAT BODY
+========================================================= */
+
+.repeat-body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 30px;
+    margin: 0 0 0 12px;
+    padding: 0;
+    background: transparent;
+    z-index: 3;
+}
+
+/* =========================================================
+   EMPTY REPEAT
+========================================================= */
+
+.repeat-body:empty::before {
+    content: "Drop blocks here";
+    display: block;
+    min-height: 30px;
+    padding: 7px 10px;
+    color: #777;
+    font-size: 12px;
+    font-weight: normal;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+/* =========================================================
+   PLACEHOLDER
+========================================================= */
+
+.repeat-placeholder {
+    min-height: 30px;
+    padding: 7px 10px;
+    color: #777;
+    font-size: 12px;
+    font-weight: normal;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+/* =========================================================
+   BLOCKS INSIDE REPEAT
+========================================================= */
+
+.repeat-body .block {
+    position: relative;
+    width: fit-content;
+    min-width: 135px;
+    min-height: 34px;
+    padding: 8px 10px;
+    margin: 0;
+    background: #9250a8;
+    color: white;
+    z-index: 6;
+    border-radius: 5px 5px 5px 2px;
+    box-shadow:
+        0 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* =========================================================
+   BUILDING BLOCKS INSIDE REPEAT
+========================================================= */
+
+.repeat-body .block[data-command="buildHouse"],
+.repeat-body .block[data-command="buildSchool"],
+.repeat-body .block[data-command="buildGarden"] {
+    background: #78c9e8 !important;
+}
+
+.repeat-body .block[data-command="buildHouse"]::before,
+.repeat-body .block[data-command="buildHouse"]::after,
+.repeat-body .block[data-command="buildSchool"]::before,
+.repeat-body .block[data-command="buildSchool"]::after,
+.repeat-body .block[data-command="buildGarden"]::before,
+.repeat-body .block[data-command="buildGarden"]::after {
+    background: #78c9e8 !important;
+}
+
+/* =========================================================
+   REMOVE DEFAULT CONNECTORS INSIDE REPEAT
+========================================================= */
+
+.repeat-body .block::before,
+.repeat-body .block::after {
+    display: none;
+    content: none;
+}
+
+/* =========================================================
+   NESTED BLOCK CONNECTION
+========================================================= */
+
+.repeat-body .block:first-child {
+    margin-top: 0;
+    border-radius: 5px 5px 0 2px;
+}
+
+.repeat-body .block + .block {
+    margin-top: -5px;
+    border-radius: 0 0 5px 2px;
+}
+
+/* =========================================================
+   TOP CONNECTOR BETWEEN NESTED BLOCKS
+========================================================= */
+
+.repeat-body .block + .block::before {
+    display: block;
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: 12px;
+    width: 16px;
+    height: 7px;
+    background: #9250a8;
+    border-radius: 7px 7px 0 0;
+    z-index: 8;
+}
+
+/* =========================================================
+   BOTTOM CONNECTOR WHEN ANOTHER BLOCK FOLLOWS
+========================================================= */
+
+.repeat-body .block:not(:last-child)::after {
+    display: block;
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: 12px;
+    width: 16px;
+    height: 7px;
+    background: #9250a8;
+    border-radius: 0 0 7px 7px;
+    z-index: 8;
+}
+
+/* =========================================================
+   LAST NESTED BLOCK
+========================================================= */
+
+.repeat-body .block:last-child::after {
+    display: none;
+    content: none;
+}
+
+/* =========================================================
+   EMPTY PROGRAM
+========================================================= */
+
+.empty-text {
+    margin-top: 70px;
+    text-align: center;
+    color: #bbb;
+    font-size: 14px;
+}
+
+/* =========================================================
+   GAME PANEL
+========================================================= */
+
+.game-panel {
+    position: relative;
+    background: #c9d978;
+    overflow: hidden;
+}
+
+.game-board-wrapper {
+    width: 100%;
+    height: calc(100% - 100px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =========================================================
+   GAME BOARD
+========================================================= */
+
+#game-board {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-image:
+        url("assets/background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+}
+
+/* =========================================================
+   MAP
+========================================================= */
+
+#map {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 420px;
+    height: 420px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.map-cell {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition:
+        background 0.2s ease,
+        border 0.2s ease;
+}
+
+.map-cell.path {
+    background: rgba(255, 255, 255, 0.28);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.30);
+}
+
+.map-cell.blocked {
+    background: rgba(40, 50, 40, 0.65);
+}
+
+/* =========================================================
+   ROBOT
+========================================================= */
+
+#robot {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    z-index: 8;
+    transition:
+        left 0.3s ease,
+        top 0.3s ease;
+}
+
+/* =========================================================
+   GOAL
+========================================================= */
+
+#goal {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 38px;
+    color: #FFD43B;
+    z-index: 7;
+    pointer-events: none;
+    transition:
+        left 0.3s ease,
+        top 0.3s ease;
+}
+
+/* =========================================================
+   GAME MESSAGE
+========================================================= */
+
+.game-message {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 35, 20, 0.45);
+}
+
+.game-message.hidden {
+    display: none;
+}
+
+.message-box {
+    width: 280px;
+    padding: 25px;
+    background: white;
+    border-radius: 18px;
+    text-align: center;
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.25);
+    transform: translateY(50px);
+    position: relative;
+}
+
+.message-icon {
+    font-size: 42px;
+    color: #FFD43B;
+}
+
+.message-box h2 {
+    margin: 8px 0;
+    color: #36502d;
+    font-size: 22px;
+}
+
+.message-box p {
+    margin: 0 0 20px;
+    color: #777;
+    font-size: 14px;
+}
+
+#next-level-button {
+    padding: 11px 20px;
+    border: none;
+    border-radius: 8px;
+    background: #63bd3d;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* =========================================================
+   CONTROLS
+========================================================= */
+
+.game-controls {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    background: #36502d;
+}
+
+.run-button {
+    width: 70px;
+    height: 70px;
+    border: none;
+    border-radius: 50%;
+    background: #63bd3d;
+    color: white;
+    font-size: 35px;
+    cursor: pointer;
+    box-shadow:
+        0 4px 0 rgba(0, 0, 0, 0.15);
+}
+
+.run-button:hover {
+    transform: scale(1.04);
+}
+
+.run-button:active {
+    transform: scale(0.97);
+}
+
+.reset-button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 7px;
+    background: #eee;
+    color: #555;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.reset-button:hover {
+    background: white;
+}
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #bbb;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* =========================================================
+   BUILDING BLOCK COLORS
+========================================================= */
+
+.blocks-panel .block[data-command="buildHouse"],
+.blocks-panel .block[data-command="buildSchool"],
+.blocks-panel .block[data-command="buildGarden"] {
+    background: #78c9e8 !important;
+}
+
+.blocks-panel .block[data-command="buildHouse"]::before,
+.blocks-panel .block[data-command="buildHouse"]::after,
+.blocks-panel .block[data-command="buildSchool"]::before,
+.blocks-panel .block[data-command="buildSchool"]::after,
+.blocks-panel .block[data-command="buildGarden"]::before,
+.blocks-panel .block[data-command="buildGarden"]::after {
+    background: #78c9e8 !important;
+}
+
+/* =========================================================
+   MESSAGE CLOSE BUTTON
+========================================================= */
+
+.close-message-button {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #777;
+    font-size: 27px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.close-message-button:hover {
+    background: #eeeeee;
+    color: #333;
+}
+
+/* =========================================================
+   BUILDING TARGETS
+========================================================= */
+
+.building-shadow {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 2px dashed;
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 8;
+    opacity: 0.55;
+    box-sizing: border-box;
+}
+
+.building-shadow-house {
+    background: rgba(190, 160, 120, 0.18);
+    border-color: rgba(150, 115, 75, 0.65);
+    color: rgba(120, 90, 55, 0.75);
+}
+
+.building-shadow-school {
+    background: rgba(120, 150, 180, 0.18);
+    border-color: rgba(80, 115, 150, 0.65);
+    color: rgba(65, 95, 125, 0.75);
+}
+
+.building-shadow-garden {
+    background: rgba(110, 160, 110, 0.18);
+    border-color: rgba(75, 125, 75, 0.65);
+    color: rgba(65, 105, 65, 0.75);
+}
+
+@media (max-width: 600px) {
+    .building-shadow {
+        font-size: 20px;
+        border-width: 1px;
+        border-radius: 6px;
+    }
+}
