@@ -6,13 +6,28 @@
 <title>Robot Coding Game</title>
 <style>
 body{font-family:system-ui,sans-serif;background:#eef4ff;margin:0;display:grid;place-items:center;min-height:100vh}
-.card{background:#fff;border-radius:16px;padding:24px;width:min(460px,92vw);box-shadow:0 6px 24px #0002}
+body.quiz{background:#8a3de0;place-items:start center}
+.card{background:#fff;border-radius:16px;padding:24px;width:min(520px,92vw);box-shadow:0 6px 24px #0002}
 h1{margin:0 0 6px}
-input,textarea{width:100%;box-sizing:border-box;padding:10px;margin:6px 0 12px;border:2px solid #cfd8ee;border-radius:10px;font:inherit}
+input,textarea,select{width:100%;box-sizing:border-box;padding:10px;margin:6px 0 12px;border:2px solid #cfd8ee;border-radius:10px;font:inherit}
 button{width:100%;padding:12px;border:0;border-radius:10px;background:#3b6fe0;color:#fff;font-weight:700;font-size:16px;cursor:pointer;margin-top:8px}
-button:disabled{background:#b7c2dc;cursor:default}
-label.o{display:block;padding:8px 10px;border:2px solid #cfd8ee;border-radius:10px;margin:6px 0}
-.q{margin:14px 0 4px;font-weight:700}
+.map{display:flex;flex-wrap:wrap;gap:16px;margin:16px 0}
+.ch{width:96px;background:none;color:#222;font-size:13px;padding:0}
+.n{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 6px;border:3px solid #19b4d4;border-radius:50%;font-size:26px;color:#19b4d4;background:#fff}
+.n.ok{background:#2db84d;border-color:#2db84d;color:#fff}
+.qbox{width:min(980px,96vw);padding:12px 0}
+.bar{display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:14px}
+.bar button{width:auto;padding:6px 12px;margin:0 12px 0 0;background:#fff;color:#222}
+.dot{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#111;color:#fff;font-weight:700}
+.dot.ok{background:#2db84d}.dot.cur{outline:3px solid #fff}
+.qg{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.qc,.op{background:#fff;border-radius:12px;padding:14px;box-sizing:border-box}
+.qc img,.op img{max-width:100%;max-height:220px;display:block;margin:0 auto 8px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.op{cursor:pointer;border:4px solid #fff;text-align:center}
+.op.sel{border-color:#6fdcf5}.op.right{border-color:#2db84d;background:#e6f9ea}.op.wrong{border-color:#e5484d;background:#fdeaea}
+#ans{background:#ffd62e;color:#222;margin-top:14px}
+#fb{color:#fff;font-weight:700;text-align:center}
 </style>
 </head>
 <body>
@@ -22,56 +37,82 @@ label.o{display:block;padding:8px 10px;border:2px solid #cfd8ee;border-radius:10
 const P = new URLSearchParams(location.search), LID = P.get("lesson"), box = document.getElementById("box");
 let S = JSON.parse(sessionStorage.getItem("robotStudent") || "null"), L = null;
 const save = () => sessionStorage.setItem("robotStudent", JSON.stringify(S));
-const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const CLASSES = ["G4 Torenia", "G4 Evodia", "G4 Lasiandra", "G4 Salvia"]; // ubah daftar kelas di sini
+const send = (items) => api("submit", { lessonId: L.id, lessonTitle: L.title, name: S.name, cls: S.cls, items }).catch(() => {});
 
 async function init() {
   if (!LID) { box.innerHTML = "<h1>Link tidak valid</h1>"; return; }
   box.innerHTML = "<p>Memuat...</p>";
   try { const r = await apiGet("getLesson", { id: LID }); if (!r.ok) throw 0; L = r.lesson; }
   catch (e) { box.innerHTML = "<h1>Lesson tidak ditemukan</h1><p>Minta link baru ke gurumu.</p>"; return; }
+  if (!L.challenges || !L.challenges.length) L.challenges = [{ type: "game", title: "Game" }];
   sessionStorage.setItem("robotStudentLesson", JSON.stringify(L));
-  if (!S || S.lesson !== LID) { showLogin(); return; }
-  if (P.get("done") === "game") { S.game = true; save(); history.replaceState(null, "", "student.html?lesson=" + LID); }
+  if (!S || S.lesson !== LID || !S.done) { showLogin(); return; }
+  if (P.get("done") === "game") {
+    S.done[L.challenges.findIndex(c => c.type === "game")] = true; save();
+    history.replaceState(null, "", "student.html?lesson=" + LID);
+  }
   showHub();
 }
 
 function showLogin() {
-  box.innerHTML = `<h1>${esc(L.title)}</h1><p>${esc(L.description || "")}</p><input id="n" placeholder="Nama"><input id="k" placeholder="Kelas"><button id="go">MULAI</button>`;
+  box.innerHTML = `<h1>${esc(L.title)}</h1><p>${esc(L.description || "")}</p><input id="n" placeholder="Nama"><select id="k"><option value="">Pilih kelas</option>${CLASSES.map(c => `<option>${c}</option>`).join("")}</select><button id="go">MULAI</button>`;
   document.getElementById("go").onclick = () => {
     const n = document.getElementById("n").value.trim(), k = document.getElementById("k").value.trim();
     if (!n || !k) { alert("Isi nama dan kelas dulu ya."); return; }
-    S = { lesson: LID, name: n, cls: k, game: false, exit: false }; save(); showHub();
+    S = { lesson: LID, name: n, cls: k, done: {} }; save(); showHub();
   };
 }
 
 function showHub() {
-  const ex = (L.challenges || []).find(c => c.type === "exit");
-  box.innerHTML = `<h1>Halo, ${esc(S.name)}!</h1><p>${esc(L.title)}</p><button id="g">${S.game ? "✓ " : ""}1. MAIN GAME</button>` +
-    (ex ? `<button id="e" ${S.game && !S.exit ? "" : "disabled"}>${S.exit ? "✓ " : ""}2. EXIT TICKET</button>` : "") +
-    (S.game && (!ex || S.exit) ? "<p><b>Semua selesai 🎉</b></p>" : "");
-  document.getElementById("g").onclick = () => location.href = "index.html?lesson=" + encodeURIComponent(LID) + "&student=1";
-  if (ex) document.getElementById("e").onclick = () => showExit(ex);
+  document.body.classList.remove("quiz"); box.className = "card";
+  const d = S.done, all = L.challenges.every((c, i) => d[i]);
+  box.innerHTML = `<h1>Halo, ${esc(S.name)}!</h1><p>${esc(L.title)}</p><div class="map">` +
+    L.challenges.map((c, i) => `<button class="ch" data-i="${i}"><span class="n ${d[i] ? "ok" : ""}">${d[i] ? "✓" : i + 1}</span>${esc(c.title)}</button>`).join("") +
+    `</div>` + (all ? "<p><b>Semua selesai 🎉</b></p>" : "");
+  box.querySelectorAll(".ch").forEach(b => b.onclick = () => {
+    const i = +b.dataset.i, c = L.challenges[i];
+    if (c.type === "game") location.href = "index.html?lesson=" + encodeURIComponent(LID) + "&student=1";
+    else startQuiz(i);
+  });
 }
 
-function showExit(ex) {
-  box.innerHTML = "<h1>Exit Ticket</h1>" + ex.questions.map((q, i) =>
-    `<div class="q">${i + 1}. ${esc(q.q)}</div>` +
-    (q.options && q.options.length
-      ? q.options.map(o => `<label class="o"><input type="radio" name="q${i}" value="${esc(o)}"> ${esc(o)}</label>`).join("")
-      : `<textarea id="a${i}" rows="3"></textarea>`)).join("") + `<button id="s">KIRIM</button>`;
-  document.getElementById("s").onclick = async () => {
-    const items = ex.questions.map((q, i) => {
-      const el = q.options && q.options.length ? document.querySelector(`input[name=q${i}]:checked`) : document.getElementById("a" + i);
-      return { challenge: "Exit Ticket", question: q.q, answer: el ? el.value.trim() : "" };
+function startQuiz(ci) {
+  const c = L.challenges[ci];
+  let qi = 0, sel = null, locked = false;
+  const draw = () => {
+    const q = c.questions[qi], last = qi === c.questions.length - 1;
+    document.body.classList.add("quiz"); box.className = "qbox";
+    box.innerHTML = `<div class="bar"><button id="bk">←</button>` +
+      c.questions.map((_, k) => `<span class="dot ${k < qi ? "ok" : k === qi ? "cur" : ""}">${k + 1}</span>`).join("") + `</div>
+      <div class="qg"><div class="qc">${q.img ? `<img src="${esc(q.img)}">` : ""}<p><b>${esc(q.q)}</b></p></div>
+      <div class="opts">` + q.options.map((o, k) => `<div class="op" data-k="${k}">${o.img ? `<img src="${esc(o.img)}">` : ""}${o.text ? `<div>${esc(o.text)}</div>` : ""}</div>`).join("") +
+      `</div></div><button id="ans">JAWAB</button><p id="fb"></p>`;
+    const ops = box.querySelectorAll(".op");
+    document.getElementById("bk").onclick = showHub;
+    ops.forEach(el => el.onclick = () => {
+      if (locked) return;
+      sel = +el.dataset.k;
+      ops.forEach(x => x.classList.toggle("sel", x === el));
     });
-    if (items.some(x => !x.answer)) { alert("Jawab semua pertanyaan dulu ya."); return; }
-    const b = document.getElementById("s"); b.disabled = true; b.textContent = "Mengirim...";
-    try {
-      const r = await api("submit", { lessonId: L.id, lessonTitle: L.title, name: S.name, cls: S.cls, items });
-      if (!r.ok) throw 0;
-      S.exit = true; save(); showHub();
-    } catch (e) { alert("Gagal mengirim, coba lagi."); b.disabled = false; b.textContent = "KIRIM"; }
+    document.getElementById("ans").onclick = () => {
+      if (locked) {
+        if (!last) { qi++; sel = null; locked = false; draw(); }
+        else { S.done[ci] = true; save(); showHub(); }
+        return;
+      }
+      if (sel == null) { alert("Pilih salah satu jawaban dulu ya."); return; }
+      locked = true;
+      const ok = sel === q.correct;
+      ops.forEach(el => { const k = +el.dataset.k; el.classList.remove("sel"); if (k === q.correct) el.classList.add("right"); else if (k === sel) el.classList.add("wrong"); });
+      document.getElementById("fb").textContent = ok ? "Benar! 🎉" : "Belum tepat. Jawaban yang benar ditandai hijau.";
+      document.getElementById("ans").textContent = last ? "SELESAI" : "LANJUT";
+      const o = q.options[sel];
+      send([{ challenge: c.title, question: q.q || "(soal bergambar " + (qi + 1) + ")", answer: (o.text || "Gambar " + (sel + 1)) + (ok ? " (benar)" : " (salah)") }]);
+    };
   };
+  draw();
 }
 init();
 </script>
