@@ -1,119 +1,141 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Challenges</title>
 <style>
-body{font-family:system-ui,sans-serif;background:#eef4ff;margin:0;color:#222}
-.w{max-width:820px;margin:0 auto;padding:16px}
-.top{display:flex;gap:12px;align-items:center;justify-content:space-between}
-.c,.q{background:#fff;border-radius:14px;padding:14px;margin:12px 0;box-shadow:0 2px 10px #0001}
-.q{background:#f6f8ff;box-shadow:none}
-.h{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+:root{--o:#E8832A;--g:#3FA535;--b:#1B4F9C;--n:#0F2F6B}
+*{box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#f4f7fd;margin:0;color:var(--n)}
+.top{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;padding:10px 20px;background:#fff;border-bottom:4px solid var(--o)}
+.top h2{flex:1;margin:0;font-size:18px}.top a{color:var(--b);font-weight:700;text-decoration:none}
+.w{max-width:900px;margin:0 auto;padding:16px}
+.c{background:#fff;border-radius:16px;padding:16px;margin:14px 0;box-shadow:0 2px 10px #0f2f6b14;border-top:5px solid var(--b)}
+.q{background:#f7f9ff;border:2px solid #dde6f7;border-radius:12px;padding:12px;margin:12px 0}
+.h,.qh,.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}.qh{justify-content:space-between}
 .h input{flex:1}
-input[type=text],textarea{box-sizing:border-box;padding:8px;border:2px solid #cfd8ee;border-radius:8px;font:inherit}
-textarea{width:100%}
-button{padding:8px 12px;border:0;border-radius:8px;background:#3b6fe0;color:#fff;font-weight:700;cursor:pointer}
-.opt{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
-.opt input[type=text]{flex:1;min-width:140px}
-img{max-height:70px;border-radius:6px}
-.add{display:flex;gap:8px}
-a{color:#3b6fe0;font-weight:700}
+input[type=text]{padding:8px 10px;border:2px solid #cfdcf3;border-radius:8px;font:inherit;min-width:120px;flex:1}
+input.wide{width:100%;flex:none}
+.bi{display:flex;gap:6px;flex:1;min-width:240px}
+button,select{padding:8px 12px;border:0;border-radius:8px;background:var(--b);color:#fff;font-weight:700;cursor:pointer;font:inherit;font-weight:700}
+button.x{background:#e0483e;padding:6px 10px}.add{background:var(--g)}.main{background:var(--o)}
+select.addq{background:var(--g)}
+.file{background:#e6edfa;color:var(--b);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px}.file input{display:none}
+img{max-height:56px;border-radius:6px}
+.tag{background:var(--o);color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700}
+.hint{color:#5b6b8c;font-size:13px;margin:4px 0}
+.ck{font-weight:700;color:var(--g)}
 </style>
 </head>
 <body>
-<div class="w">
-  <div class="top"><a href="admin.html">← Kembali</a><h2 id="t"></h2><button id="save">SIMPAN</button></div>
-  <div id="list"></div>
-  <div class="add"><button data-a="addgame">+ Game</button><button data-a="addquiz">+ Kuis / Exit Ticket</button></div>
-</div>
+<div class="top"><a href="admin.html">← Back</a><h2 id="t"></h2><button class="main" id="save">SAVE</button></div>
+<div class="w"><div id="list"></div>
+  <div class="row"><button class="add" data-a="addgame">+ Game</button><button class="add" data-a="addquiz">+ Quiz / Exit Ticket</button></div></div>
 <script src="api.js"></script>
 <script>
 const id = new URLSearchParams(location.search).get("lesson");
 const lessons = JSON.parse(localStorage.getItem("robotLessons")) || [];
-const L = lessons.find(x => String(x.id) === id);
-if (!L) { alert("Lesson tidak ditemukan"); location.href = "admin.html"; }
-L.challenges = (L.challenges || [{ type: "game", title: "Game" }]).filter(c => c.type === "game" || c.type === "quiz");
-const C = L.challenges, list = document.getElementById("list");
+const LS = lessons.find(x => String(x.id) === id);
+if (!LS) { alert("Lesson not found"); location.href = "admin.html"; }
+LS.challenges = (LS.challenges || [{ type: "game", title: "Game" }]).filter(c => c.type === "game" || c.type === "quiz");
+const C = LS.challenges, list = document.getElementById("list");
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const newQ = () => ({ q: "", img: "", options: [{ text: "" }, { text: "" }], correct: null });
-const at = (i, j, k) => `data-i="${i}" data-j="${j}" data-k="${k}"`;
+const raw = o => (o && (o.en || o.id)) || "";
+const TL = { choice: "Multiple choice", text: "Type the answer", dropdown: "Dropdown (fill the blank)", match: "Matching", order: "Ordering" };
+const E = () => ({ en: "", id: "" });
+const D = {
+  opt: () => ({ t: E(), img: "", ok: false }), card: () => ({ t: E() }), pair: () => ({ l: E(), r: E() }), blank: () => ({ opts: "" }),
+  q: ty => Object.assign({ type: ty, q: E(), img: "" }, ty === "choice" ? { options: [D.opt(), D.opt()] } : ty === "text" ? { answers: "" } : ty === "dropdown" ? { blanks: [D.blank()] } : ty === "match" ? { pairs: [D.pair(), D.pair()] } : { cards: [D.card(), D.card()], extras: [] })
+};
+function norm(q) {
+  if (q.type) return q;
+  return { type: "choice", q: { en: q.q || "", id: "" }, img: q.img || "", options: (q.options || []).map((o, k) => ({ t: { en: o.text || "", id: "" }, img: o.img || "", ok: k === q.correct })) };
+}
+C.forEach(c => { if (c.type === "quiz") c.questions = c.questions.map(norm); });
+const walk = a => a.reduce((o, k) => o[k], C);
+const setPath = (p, v) => { const a = p.split("."), k = a.pop(); walk(a)[k] = v; };
 
-function render() {
-  document.getElementById("t").textContent = L.title;
-  list.innerHTML = C.map((c, i) => `<div class="c"><div class="h"><b>${i + 1}. ${c.type === "game" ? "🎮" : "❓"}</b>
-    <input type="text" data-f="title" ${at(i, 0, 0)} value="${esc(c.title)}">
-    <button data-a="up" ${at(i, 0, 0)}>↑</button><button data-a="dn" ${at(i, 0, 0)}>↓</button><button data-a="del" ${at(i, 0, 0)}>Hapus</button></div>` +
-    (c.type === "game" ? "<p>Murid memainkan level yang kamu buat di Level Editor.</p>"
-      : c.questions.map((q, j) => `<div class="q"><div class="h"><b>Soal ${j + 1}</b><button data-a="delq" ${at(i, j, 0)}>Hapus soal</button></div>
-        <textarea rows="2" data-f="q" ${at(i, j, 0)} placeholder="Teks pertanyaan">${esc(q.q)}</textarea>
-        <div class="opt">Gambar soal: <input type="file" accept="image/*" data-f="qimg" ${at(i, j, 0)}>${q.img ? `<img src="${esc(q.img)}">` : ""}</div>` +
-        q.options.map((o, k) => `<div class="opt"><label><input type="radio" name="r${i}_${j}" data-f="correct" ${at(i, j, k)} ${q.correct === k ? "checked" : ""}> benar</label>
-          <input type="text" data-f="otext" ${at(i, j, k)} value="${esc(o.text)}" placeholder="Teks opsi ${k + 1}">
-          <input type="file" accept="image/*" data-f="oimg" ${at(i, j, k)}>${o.img ? `<img src="${esc(o.img)}">` : ""}
-          <button data-a="delo" ${at(i, j, k)}>×</button></div>`).join("") +
-        `<button data-a="addo" ${at(i, j, 0)}>+ Opsi</button></div>`).join("") +
-      `<button data-a="addq" ${at(i, 0, 0)}>+ Soal</button>`) + "</div>").join("");
+const bi = (p, o, ph) => `<div class="bi"><input type="text" data-p="${p}.en" value="${esc(o.en)}" placeholder="${ph} — English"><input type="text" data-p="${p}.id" value="${esc(o.id)}" placeholder="${ph} — Indonesia"></div>`;
+const pic = (p, u, lab) => `<label class="file">🖼 ${lab}<input type="file" accept="image/*" data-img="${p}"></label>${u ? `<img src="${esc(u)}"><button class="x" data-a="clrimg" data-p="${p}">×</button>` : ""}`;
+const del = p => `<button class="x" data-a="del" data-p="${p}">×</button>`;
+const add = (p, n, lab) => `<button class="add" data-a="push" data-p="${p}" data-n="${n}">+ ${lab}</button>`;
+
+function qForm(q, b) {
+  let h = `<div class="q"><div class="qh"><span class="tag">${TL[q.type]}</span>${del(b)}</div><div class="row">${bi(b + ".q", q.q, "Question")}</div><div class="row">${pic(b + ".img", q.img, "Picture")}</div>`;
+  if (q.type === "choice") h += q.options.map((o, k) => `<div class="row"><label class="ck"><input type="checkbox" data-p="${b}.options.${k}.ok" ${o.ok ? "checked" : ""}> ✔</label>${bi(`${b}.options.${k}.t`, o.t, "Option " + (k + 1))}${pic(`${b}.options.${k}.img`, o.img, "Pic")}${q.options.length > 2 ? del(`${b}.options.${k}`) : ""}</div>`).join("") + add(b + ".options", "opt", "Option") + `<p class="hint">Tick ✔ on every correct option (one ✔ = single answer, more = multi-select).</p>`;
+  if (q.type === "text") h += `<input type="text" class="wide" data-p="${b}.answers" value="${esc(q.answers)}" placeholder="Accepted answers separated by commas. Leave empty = not graded (just recorded)">`;
+  if (q.type === "dropdown") h += `<p class="hint">Write ___ (3 underscores) in the question for each blank. Then list the choices per blank: the FIRST is the correct one (students see them shuffled).</p>` + q.blanks.map((x, k) => `<div class="row"><b>Blank ${k + 1}</b><input type="text" data-p="${b}.blanks.${k}.opts" value="${esc(x.opts)}" placeholder="correct, wrong, wrong">${q.blanks.length > 1 ? del(`${b}.blanks.${k}`) : ""}</div>`).join("") + add(b + ".blanks", "blank", "Blank");
+  if (q.type === "match") h += q.pairs.map((p, k) => `<div class="row">${bi(`${b}.pairs.${k}.l`, p.l, "Left")}<span>↔</span>${bi(`${b}.pairs.${k}.r`, p.r, "Match")}${q.pairs.length > 2 ? del(`${b}.pairs.${k}`) : ""}</div>`).join("") + add(b + ".pairs", "pair", "Pair");
+  if (q.type === "order") h += `<p class="hint">Write the cards in the CORRECT order. Students can add their own answer boxes.</p>` + q.cards.map((c, k) => `<div class="row"><b>${k + 1}</b>${bi(`${b}.cards.${k}.t`, c.t, "Card")}${q.cards.length > 2 ? del(`${b}.cards.${k}`) : ""}</div>`).join("") + add(b + ".cards", "card", "Card") +
+    `<p class="hint">Extra cards (wrong ones, optional):</p>` + q.extras.map((c, k) => `<div class="row">${bi(`${b}.extras.${k}.t`, c.t, "Extra card")}${del(`${b}.extras.${k}`)}</div>`).join("") + add(b + ".extras", "card", "Extra card");
+  return h + "</div>";
 }
 
-list.addEventListener("input", e => {
-  const t = e.target, f = t.dataset.f;
-  if (!f || t.type === "file") return;
-  const c = C[t.dataset.i], q = c.questions && c.questions[t.dataset.j], k = +t.dataset.k;
-  if (f === "title") c.title = t.value;
-  if (f === "q") q.q = t.value;
-  if (f === "otext") q.options[k].text = t.value;
-  if (f === "correct") q.correct = k;
-});
+function render() {
+  document.getElementById("t").textContent = LS.title;
+  list.innerHTML = C.map((c, i) => `<div class="c"><div class="h"><b>${i + 1}. ${c.type === "game" ? "🎮" : "❓"}</b><input type="text" data-p="${i}.title" value="${esc(c.title)}">
+    <button data-a="up" data-p="${i}">↑</button><button data-a="dn" data-p="${i}">↓</button><button class="x" data-a="delc" data-p="${i}">Delete</button></div>` +
+    (c.type === "game" ? "<p>Students play the levels you built in the Level Editor.</p>" :
+      c.questions.map((q, j) => qForm(q, `${i}.questions.${j}`)).join("") +
+      `<select class="addq" data-a="addq" data-p="${i}.questions"><option value="">+ Add question…</option>${Object.keys(TL).map(k => `<option value="${k}">${TL[k]}</option>`).join("")}</select>`) + "</div>").join("");
+}
 
+list.addEventListener("input", e => { const t = e.target; if (t.dataset.p) setPath(t.dataset.p, t.type === "checkbox" ? t.checked : t.value); });
 list.addEventListener("change", async e => {
-  const t = e.target, f = t.dataset.f;
-  if ((f !== "qimg" && f !== "oimg") || !t.files[0]) return;
-  const url = await upload(t.files[0]);
-  if (!url) return;
-  const q = C[t.dataset.i].questions[t.dataset.j];
-  if (f === "qimg") q.img = url; else q.options[+t.dataset.k].img = url;
-  render();
+  const t = e.target;
+  if (t.dataset.a === "addq" && t.value) { walk(t.dataset.p.split(".")).push(D.q(t.value)); render(); return; }
+  if (t.dataset.img && t.files[0]) { const u = await upload(t.files[0]); if (u) { setPath(t.dataset.img, u); render(); } }
 });
-
 document.body.addEventListener("click", e => {
-  const b = e.target.closest("[data-a]");
-  if (!b) return;
-  const a = b.dataset.a, i = +b.dataset.i, j = +b.dataset.j, k = +b.dataset.k;
-  if (a === "addgame") { if (C.some(c => c.type === "game")) return alert("Game hanya bisa ditambah satu kali."); C.push({ type: "game", title: "Game" }); }
-  if (a === "addquiz") C.push({ type: "quiz", title: "Kuis", questions: [newQ()] });
-  if (a === "up" && i > 0) C.splice(i - 1, 0, C.splice(i, 1)[0]);
-  if (a === "dn" && i < C.length - 1) C.splice(i + 1, 0, C.splice(i, 1)[0]);
-  if (a === "del" && confirm("Hapus challenge ini?")) C.splice(i, 1);
-  if (a === "addq") C[i].questions.push(newQ());
-  if (a === "delq" && confirm("Hapus soal ini?")) C[i].questions.splice(j, 1);
-  if (a === "addo") C[i].questions[j].options.push({ text: "" });
-  if (a === "delo") { const q = C[i].questions[j]; q.options.splice(k, 1); q.correct = q.correct === k ? null : (q.correct > k ? q.correct - 1 : q.correct); }
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  const a = b.dataset.a, p = b.dataset.p;
+  if (a === "addgame") { if (C.some(c => c.type === "game")) return alert("Only one Game per lesson."); C.push({ type: "game", title: "Game" }); }
+  if (a === "addquiz") C.push({ type: "quiz", title: "Quiz", questions: [D.q("choice")] });
+  if (a === "up" || a === "dn" || a === "delc") {
+    const i = +p;
+    if (a === "up" && i > 0) C.splice(i - 1, 0, C.splice(i, 1)[0]);
+    if (a === "dn" && i < C.length - 1) C.splice(i + 1, 0, C.splice(i, 1)[0]);
+    if (a === "delc" && confirm("Delete this challenge?")) C.splice(i, 1);
+  }
+  if (a === "push") walk(p.split(".")).push(D[b.dataset.n]());
+  if (a === "del") { const s = p.split("."), i = +s.pop(); if (s.length > 2 || confirm("Delete this question?")) walk(s).splice(i, 1); }
+  if (a === "clrimg") setPath(p, "");
   render();
 });
 
-document.getElementById("save").onclick = () => {
-  for (const c of C) if (c.type === "quiz") for (const q of c.questions) {
-    if (!q.q.trim() && !q.img) return alert('Ada soal di "' + c.title + '" yang masih kosong.');
-    if (q.options.length < 2 || q.correct == null) return alert('Soal di "' + c.title + '" perlu minimal 2 opsi dan satu jawaban benar.');
+function problem() {
+  for (const c of C) if (c.type === "quiz") {
+    if (!c.questions.length) return `"${c.title}" has no questions.`;
+    for (const [j, q] of c.questions.entries()) {
+      const w = `"${c.title}" question ${j + 1}: `, cnt = s => (s.match(/___/g) || []).length;
+      if (!raw(q.q).trim()) return w + "write the question.";
+      if (q.type === "choice" && (q.options.length < 2 || !q.options.some(o => o.ok))) return w + "needs 2+ options and at least 1 ticked correct.";
+      if (q.type === "dropdown") {
+        if (cnt(q.q.en) !== q.blanks.length || (q.q.id && cnt(q.q.id) !== q.blanks.length)) return w + `the number of ___ must equal the number of blank lists (${q.blanks.length}).`;
+        if (q.blanks.some(x => x.opts.split(",").filter(s => s.trim()).length < 2)) return w + "each blank needs at least 2 choices.";
+      }
+      if (q.type === "match" && q.pairs.some(p => !raw(p.l) || !raw(p.r))) return w + "fill in every pair.";
+      if (q.type === "order" && (q.cards.some(x => !raw(x.t)) || q.extras.some(x => !raw(x.t)))) return w + "fill in every card.";
+    }
   }
+  return "";
+}
+document.getElementById("save").onclick = () => {
+  const m = problem(); if (m) return alert(m);
   localStorage.setItem("robotLessons", JSON.stringify(lessons));
-  alert("Tersimpan. Klik PUBLISH / RE-PUBLISH di dashboard supaya murid melihat perubahan.");
+  alert("Saved. Click PUBLISH / RE-PUBLISH on the dashboard so students see the changes.");
 };
 
 async function upload(file) {
-  const key = sessionStorage.getItem("adminKey") || prompt("Masukkan kunci admin:");
-  if (!key) return null;
+  const key = sessionStorage.getItem("adminKey") || prompt("Enter admin key:"); if (!key) return null;
   const data = await shrink(file);
   try {
     const r = await api("upload", { key: key, data: data, name: file.name });
     if (!r.ok) throw new Error(r.error);
-    sessionStorage.setItem("adminKey", key);
-    return r.url;
-  } catch (e) { alert("Gagal upload: " + e.message); return null; }
+    sessionStorage.setItem("adminKey", key); return r.url;
+  } catch (e) { alert("Upload failed: " + e.message); return null; }
 }
-
 function shrink(file) {
   return new Promise(res => {
     const im = new Image();
