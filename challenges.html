@@ -49,8 +49,17 @@ input.auto{background:#eefbea;border-color:#b7e2b0}
 const id = new URLSearchParams(location.search).get("lesson");
 const lessons = JSON.parse(localStorage.getItem("robotLessons")) || [];
 const LS = lessons.find(x => String(x.id) === id);
-if (!LS) { alert("Lesson not found"); location.href = "admin.html"; }
-LS.challenges = (LS.challenges || [{ type: "game", title: "Game" }]).filter(c => c.type === "game" || c.type === "quiz");
+if (!LS) {
+  alert("Lesson not found");
+  location.href = "admin.html";
+  throw new Error("Lesson not found");
+}
+
+// Pastikan data challenge selalu punya bentuk yang valid.
+// Satu quiz yang rusak tidak boleh membuat seluruh halaman berhenti bekerja.
+LS.challenges = Array.isArray(LS.challenges) ? LS.challenges : [];
+LS.challenges = LS.challenges.filter(c => c && (c.type === "game" || c.type === "quiz"));
+if (!LS.challenges.length) LS.challenges.push({ type: "game", title: "Game", cid: null });
 const C = LS.challenges, list = document.getElementById("list");
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const raw = o => (o && (o.en || o.id)) || "";
@@ -68,7 +77,23 @@ function norm(q) {
   return { type: "choice", q: { en: q.q || "", id: "" }, img: q.img || "", options: (q.options || []).map((o, k) => ({ t: { en: o.text || "", id: "" }, img: o.img || "", ok: k === q.correct })) };
 }
 const newId = () => Math.random().toString(36).slice(2, 8);
-C.forEach(c => { if (!c.cid) c.cid = newId(); if (c.type === "quiz") { c.questions = c.questions.map(norm); if (!c.attempts) c.attempts = 1; c.questions.forEach(q => { if (q.type === "choice" && !q.mode) q.mode = q.options.filter(o => o.ok).length > 1 ? "multi" : "single"; }); } });
+C.forEach(c => {
+  if (!c.cid) c.cid = newId();
+  if (!c.title) c.title = c.type === "game" ? "Game" : "Quiz";
+  if (c.type === "quiz") {
+    // Quiz lama bisa saja belum memiliki questions atau nilainya bukan array.
+    c.questions = Array.isArray(c.questions) ? c.questions.map(norm) : [];
+    if (!c.questions.length) c.questions.push(D.q("single"));
+    if (!c.attempts) c.attempts = 1;
+    c.questions.forEach(q => {
+      if (!q || typeof q !== "object") return;
+      if (q.type === "choice") {
+        q.options = Array.isArray(q.options) && q.options.length ? q.options : [D.opt(), D.opt()];
+        if (!q.mode) q.mode = q.options.filter(o => o && o.ok).length > 1 ? "multi" : "single";
+      }
+    });
+  }
+});
 const lockBox = document.getElementById("lock");
 lockBox.checked = !!LS.lockOrder;
 lockBox.onchange = () => { LS.lockOrder = lockBox.checked; };
@@ -116,13 +141,6 @@ function render() {
       (c.questions.length < 2 ? `<p class="hint">💡 A quiz can have as many questions as you like. Students answer them one by one.</p>` : "")) + "</div>").join("");
 }
 
-function persistDraft() {
-  // Keep the newly created/edited challenge in the current lesson immediately.
-  // This prevents a newly added challenge from disappearing if the page is
-  // refreshed or the admin navigates away before pressing SAVE.
-  localStorage.setItem("robotLessons", JSON.stringify(lessons));
-}
-
 list.addEventListener("input", e => {
   const t = e.target; if (!t.dataset.p) return;
   if (t.dataset.single !== undefined) { walk(t.dataset.single.split(".")).forEach((o, k) => { o.ok = k === +t.dataset.k; }); return; }
@@ -139,11 +157,9 @@ document.body.addEventListener("click", e => {
   if (a === "addgame") {
     if (C.some(c => c.type === "game")) return alert("Only one Game per lesson.");
     C.push({ type: "game", title: "Game", cid: newId() });
-    persistDraft();
   }
   if (a === "addquiz") {
-    C.push({ type: "quiz", title: "Quiz", cid: newId(), questions: [D.q("choice")] });
-    persistDraft();
+    C.push({ type: "quiz", title: "Quiz", cid: newId(), attempts: 1, questions: [D.q("single")] });
   }
   if (a === "up" || a === "dn" || a === "delc") {
     const i = +p;
@@ -156,9 +172,9 @@ document.body.addEventListener("click", e => {
   if (a === "dup") { const s = p.split("."), j = +s.pop(), arr = walk(s); arr.splice(j + 1, 0, JSON.parse(JSON.stringify(arr[j]))); }
   if (a === "del") { const s = p.split("."), i = +s.pop(); if (s.length > 2 || confirm("Delete this question?")) walk(s).splice(i, 1); }
   if (a === "clrimg") setPath(p, "");
-  // Structural challenge/question changes are persisted immediately.
-  // Text input still waits for SAVE so translation/validation remains intact.
-  if (["up", "dn", "delc", "push", "addq", "dup", "del", "clrimg"].includes(a)) persistDraft();
+
+  // Simpan perubahan struktur segera supaya challenge tidak hilang ketika halaman direfresh.
+  localStorage.setItem("robotLessons", JSON.stringify(lessons));
   render();
 });
 
