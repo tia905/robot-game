@@ -257,6 +257,7 @@ body {
 }
 
 #program {
+    position: relative;
     min-height: calc(100% - 46px);
     padding: 18px 28px 50px;
 }
@@ -297,7 +298,7 @@ body {
    NORMAL PROGRAM BLOCKS
 ========================================================= */
 
-#program > .block {
+:is(#program, .parked-stack) > .block {
     position: relative;
     width: fit-content;
     min-width: 150px;
@@ -310,9 +311,9 @@ body {
    BUILDING BLOCKS IN PROGRAM
 ========================================================= */
 
-#program > .block[data-command="buildHouse"],
-#program > .block[data-command="buildSchool"],
-#program > .block[data-command="buildGarden"] {
+:is(#program, .parked-stack) > .block[data-command="buildHouse"],
+:is(#program, .parked-stack) > .block[data-command="buildSchool"],
+:is(#program, .parked-stack) > .block[data-command="buildGarden"] {
     background: #78c9e8 !important;
 }
 
@@ -320,12 +321,12 @@ body {
    BUILDING BLOCK CONNECTORS IN PROGRAM
 ========================================================= */
 
-#program > .block[data-command="buildHouse"]::before,
-#program > .block[data-command="buildHouse"]::after,
-#program > .block[data-command="buildSchool"]::before,
-#program > .block[data-command="buildSchool"]::after,
-#program > .block[data-command="buildGarden"]::before,
-#program > .block[data-command="buildGarden"]::after {
+:is(#program, .parked-stack) > .block[data-command="buildHouse"]::before,
+:is(#program, .parked-stack) > .block[data-command="buildHouse"]::after,
+:is(#program, .parked-stack) > .block[data-command="buildSchool"]::before,
+:is(#program, .parked-stack) > .block[data-command="buildSchool"]::after,
+:is(#program, .parked-stack) > .block[data-command="buildGarden"]::before,
+:is(#program, .parked-stack) > .block[data-command="buildGarden"]::after {
     background: #78c9e8 !important;
 }
 
@@ -333,7 +334,7 @@ body {
    PURPLE BLOCK AFTER ORANGE
 ========================================================= */
 
-#program > .start-block + .block {
+:is(#program, .parked-stack) > .start-block + .block {
     margin-top: -5px;
     border-radius: 6px 6px 0 2px;
 }
@@ -342,7 +343,7 @@ body {
    PURPLE → PURPLE
 ========================================================= */
 
-#program > .block + .block {
+:is(#program, .parked-stack) > .block + .block {
     margin-top: -5px;
     border-radius: 0 0 6px 2px;
 }
@@ -351,7 +352,7 @@ body {
    PURPLE PROGRAM CONNECTORS
 ========================================================= */
 
-#program > .block::before {
+:is(#program, .parked-stack) > .block::before {
     content: "";
     position: absolute;
     top: -5px;
@@ -363,7 +364,7 @@ body {
     z-index: 5;
 }
 
-#program > .block::after {
+:is(#program, .parked-stack) > .block::after {
     content: "";
     position: absolute;
     bottom: -5px;
@@ -379,12 +380,12 @@ body {
    BUILDING CONNECTORS MUST STAY BLUE
 ========================================================= */
 
-#program > .block[data-command="buildHouse"]::before,
-#program > .block[data-command="buildHouse"]::after,
-#program > .block[data-command="buildSchool"]::before,
-#program > .block[data-command="buildSchool"]::after,
-#program > .block[data-command="buildGarden"]::before,
-#program > .block[data-command="buildGarden"]::after {
+:is(#program, .parked-stack) > .block[data-command="buildHouse"]::before,
+:is(#program, .parked-stack) > .block[data-command="buildHouse"]::after,
+:is(#program, .parked-stack) > .block[data-command="buildSchool"]::before,
+:is(#program, .parked-stack) > .block[data-command="buildSchool"]::after,
+:is(#program, .parked-stack) > .block[data-command="buildGarden"]::before,
+:is(#program, .parked-stack) > .block[data-command="buildGarden"]::after {
     background: #78c9e8 !important;
 }
 
@@ -392,7 +393,7 @@ body {
    PURPLE → REPEAT
 ========================================================= */
 
-#program > .block + .repeat-block {
+:is(#program, .parked-stack) > .block + .repeat-block {
     margin-top: -5px;
 }
 
@@ -962,4 +963,18 @@ body {
         border-width: 1px;
         border-radius: 6px;
     }
+}
+
+/* tumpukan blok yang dilepas sementara (tidak ikut dijalankan) */
+.parked-stack {
+    position: absolute;
+    z-index: 2;
+    width: fit-content;
+    opacity: 0.55;
+    filter: grayscale(0.6);
+    cursor: grab;
+}
+
+.parked-stack:hover {
+    opacity: 0.8;
 }

@@ -732,8 +732,86 @@ let levelCompleted = false;
 let hasCollided = false;
 
 let draggedProgramBlock = null;
+let dragDropHandled = false;
+
+/* sisipkan node di posisi sesuai kursor (atas/bawah blok yg sudah ada) */
+function placeAt(container, node, clientY) {
+    const kids = Array.from(container.children).filter(function (el) {
+        return el !== node && (el.classList.contains("block") || el.classList.contains("repeat-block"));
+    });
+    let before = null;
+    for (let i = 0; i < kids.length; i++) {
+        const r = kids[i].getBoundingClientRect();
+        if (clientY < r.top + r.height / 2) { before = kids[i]; break; }
+    }
+    if (before) container.insertBefore(node, before);
+    else container.appendChild(node);
+}
+
+let draggedStack = [];
+let dragGrab = { x: 0, y: 0 };
+
+function blockSiblings(parent) {
+    return Array.from(parent.children).filter(function (el) {
+        return el.classList.contains("block") || el.classList.contains("repeat-block");
+    });
+}
+
+/* angkat blok yg di-drag + semua blok di bawahnya (satu tumpukan) */
+function setDragged(block, event) {
+    draggedProgramBlock = block;
+    const sib = blockSiblings(block.parentElement);
+    draggedStack = sib.slice(sib.indexOf(block));
+    const r = block.getBoundingClientRect();
+    dragGrab = { x: event.clientX - r.left, y: event.clientY - r.top };
+    dragDropHandled = false;
+    draggedStack.forEach(function (n) { n.classList.add("dragging"); });
+}
+
+function insertStack(container, nodes, clientY) {
+    const kids = blockSiblings(container).filter(function (n) { return nodes.indexOf(n) < 0; });
+    let before = null;
+    for (let i = 0; i < kids.length; i++) {
+        const r = kids[i].getBoundingClientRect();
+        if (clientY < r.top + r.height / 2) { before = kids[i]; break; }
+    }
+    nodes.forEach(function (n) {
+        if (before) container.insertBefore(n, before);
+        else container.appendChild(n);
+    });
+}
+
+/* taruh tumpukan blok sementara di area kosong (tidak ikut dijalankan) */
+function parkStack(nodes, event) {
+    const pr = program.getBoundingClientRect();
+    const st = document.createElement("div");
+    st.className = "parked-stack";
+    st.style.left = Math.max(4, event.clientX - pr.left - dragGrab.x) + "px";
+    st.style.top = Math.max(4, event.clientY - pr.top - dragGrab.y) + "px";
+    program.appendChild(st);
+    nodes.forEach(function (n) { st.appendChild(n); });
+}
+
+function cleanupParked() {
+    Array.from(program.querySelectorAll(":scope > .parked-stack")).forEach(function (st) {
+        if (!st.querySelector(".block, .repeat-block")) st.remove();
+    });
+}
+
+function finishProgramDrag() {
+    Array.from(program.querySelectorAll(".dragging")).forEach(function (e) { e.classList.remove("dragging"); });
+    draggedProgramBlock = null;
+    draggedStack = [];
+    dragDropHandled = false;
+    cleanupParked();
+    updateRepeatPlaceholder();
+    showEmptyText();
+    updateBlockCounter();
+    schedulePersist();
+}
 
 let savedPrograms = {};
+let savedParked = {};
 
 
 /* =========================================================
@@ -775,6 +853,7 @@ function persistProgress() {
             JSON.stringify({
                 completed: completedLevels,
                 programs: savedPrograms,
+                parked: savedParked,
                 current: currentLevel,
                 t: Date.now()
             })
@@ -836,6 +915,9 @@ if (progressKey) {
 
             savedPrograms =
                 saved.programs || {};
+
+            savedParked =
+                saved.parked || {};
 
             const savedCurrent =
                 Number(saved.current);
@@ -2784,6 +2866,8 @@ function clearProgram() {
         }
     );
 
+    program.querySelectorAll(":scope > .parked-stack").forEach(function (st) { st.remove(); });
+
 
     showEmptyText();
 
@@ -2995,6 +3079,50 @@ function updateLevelButtons() {
    SAVE PROGRAM
 ========================================================= */
 
+function serializeNodes(nodes) {
+    return nodes.map(function (n) {
+        if (n.classList.contains("repeat-block")) {
+            const inp = n.querySelector(".repeat-number");
+            return {
+                type: "repeat",
+                times: inp ? Number(inp.value) || 2 : 2,
+                children: Array.from(n.querySelectorAll(":scope > .repeat-body > .block")).map(function (c) {
+                    return { command: c.dataset.command };
+                })
+            };
+        }
+        return { type: "block", command: n.dataset.command };
+    });
+}
+
+function buildNodes(container, items) {
+    (items || []).forEach(function (it) {
+        if (it.type === "repeat") {
+            const rb = createProgramBlock("repeat", container);
+            if (!rb) return;
+            const inp = rb.querySelector(".repeat-number");
+            if (inp) inp.value = it.times || 2;
+            const body = rb.querySelector(".repeat-body");
+            (it.children || []).forEach(function (c) { createProgramBlock(c.command, body); });
+            updateRepeatPlaceholder();
+        } else if (it.command) {
+            createProgramBlock(it.command, container);
+        }
+    });
+}
+
+function restoreParked() {
+    (savedParked[currentLevel] || []).forEach(function (sp) {
+        const st = document.createElement("div");
+        st.className = "parked-stack";
+        st.style.left = (sp.x || 0) + "px";
+        st.style.top = (sp.y || 0) + "px";
+        program.appendChild(st);
+        buildNodes(st, sp.blocks);
+    });
+    showEmptyText();
+}
+
 function saveCurrentProgram() {
 
     const savedBlocks = [];
@@ -3104,6 +3232,15 @@ function saveCurrentProgram() {
     ] =
         savedBlocks;
 
+    savedParked[currentLevel] =
+        Array.from(program.querySelectorAll(":scope > .parked-stack")).map(function (st) {
+            return {
+                x: parseFloat(st.style.left) || 0,
+                y: parseFloat(st.style.top) || 0,
+                blocks: serializeNodes(blockSiblings(st))
+            };
+        });
+
 }
 
 
@@ -3114,6 +3251,8 @@ function saveCurrentProgram() {
 function loadSavedProgram() {
 
     clearProgram();
+
+    restoreParked();
 
 
     const savedBlocks =
@@ -3517,7 +3656,9 @@ program.addEventListener(
 
 
         event.dataTransfer.dropEffect =
-            "copy";
+            draggedProgramBlock
+                ? "move"
+                : "copy";
 
     }
 );
@@ -3546,21 +3687,49 @@ program.addEventListener(
 
 
         if (
-            event.target !==
-            program
-        ) {
-
-            return;
-
-        }
-
-
-        if (
             draggedProgramBlock
         ) {
 
-            draggedProgramBlock =
-                null;
+            dragDropHandled = true;
+
+            const stack = draggedStack.slice();
+
+            const parkedTarget =
+                event.target.closest(".parked-stack");
+
+            const ownParked =
+                parkedTarget &&
+                stack.some(function (n) { return parkedTarget.contains(n); });
+
+            let stackRight = 0;
+
+            Array.from(
+                program.querySelectorAll(":scope > .start-block, :scope > .block, :scope > .repeat-block")
+            ).forEach(function (el) {
+                if (stack.indexOf(el) < 0) {
+                    stackRight = Math.max(stackRight, el.getBoundingClientRect().right);
+                }
+            });
+
+            if (ownParked || (!parkedTarget && event.clientX > stackRight + 24)) {
+
+                parkStack(stack, event);
+
+            }
+
+            else if (parkedTarget) {
+
+                insertStack(parkedTarget, stack, event.clientY);
+
+            }
+
+            else {
+
+                insertStack(program, stack, event.clientY);
+
+            }
+
+            finishProgramDrag();
 
             return;
 
@@ -3580,10 +3749,20 @@ program.addEventListener(
         }
 
 
-        createProgramBlock(
-            command,
-            program
-        );
+        const dropInto =
+            event.target.closest(".parked-stack") || program;
+
+        const made =
+            createProgramBlock(
+                command,
+                dropInto
+            );
+
+        if (made) {
+
+            placeAt(dropInto, made, event.clientY);
+
+        }
 
     }
 );
@@ -3752,8 +3931,16 @@ function createProgramBlock(
                 }
 
 
-                draggedProgramBlock =
-                    repeatBlock;
+                if (
+                    event.target !== repeatBlock
+                ) {
+
+                    return;
+
+                }
+
+
+                setDragged(repeatBlock, event);
 
 
                 event.dataTransfer.effectAllowed =
@@ -3765,10 +3952,6 @@ function createProgramBlock(
                     "move-repeat"
                 );
 
-
-                repeatBlock.classList.add(
-                    "dragging"
-                );
 
             }
         );
@@ -3783,8 +3966,11 @@ function createProgramBlock(
                 );
 
 
-                draggedProgramBlock =
-                    null;
+                if (draggedProgramBlock === repeatBlock) {
+
+                    finishProgramDrag();
+
+                }
 
 
                 updateRepeatPlaceholder();
@@ -3803,8 +3989,7 @@ function createProgramBlock(
 
 
                 if (
-                    draggedProgramBlock ===
-                    repeatBlock
+                    draggedStack.indexOf(repeatBlock) >= 0
                 ) {
 
                     event.dataTransfer.dropEffect =
@@ -3834,8 +4019,7 @@ function createProgramBlock(
 
 
                 if (
-                    draggedProgramBlock ===
-                    repeatBlock
+                    draggedStack.indexOf(repeatBlock) >= 0
                 ) {
 
                     return;
@@ -3847,13 +4031,20 @@ function createProgramBlock(
                     draggedProgramBlock
                 ) {
 
-                    repeatBody.appendChild(
-                        draggedProgramBlock
-                    );
+                    if (
+                        draggedStack.some(function (n) { return n.classList.contains("repeat-block"); })
+                    ) {
+
+                        return;
+
+                    }
 
 
-                    draggedProgramBlock =
-                        null;
+                    dragDropHandled = true;
+
+                    insertStack(repeatBody, draggedStack, event.clientY);
+
+                    finishProgramDrag();
 
 
                     updateRepeatPlaceholder();
@@ -3888,10 +4079,17 @@ function createProgramBlock(
                 }
 
 
-                createProgramBlock(
-                    nestedCommand,
-                    repeatBody
-                );
+                const madeNested =
+                    createProgramBlock(
+                        nestedCommand,
+                        repeatBody
+                    );
+
+                if (madeNested) {
+
+                    placeAt(repeatBody, madeNested, event.clientY);
+
+                }
 
 
                 updateRepeatPlaceholder();
@@ -3911,7 +4109,7 @@ function createProgramBlock(
 
         updateBlockCounter();
 
-        return;
+        return repeatBlock;
 
     }
 
@@ -3967,6 +4165,8 @@ function createProgramBlock(
 
 
     updateBlockCounter();
+
+    return newBlock;
 
 }
 
@@ -4086,8 +4286,7 @@ program.addEventListener(
         }
 
 
-        draggedProgramBlock =
-            block;
+        setDragged(block, event);
 
 
         event.dataTransfer.effectAllowed =
@@ -4097,11 +4296,6 @@ program.addEventListener(
         event.dataTransfer.setData(
             "text/plain",
             "move"
-        );
-
-
-        block.classList.add(
-            "dragging"
         );
 
     }
@@ -4147,11 +4341,17 @@ blocksArea.addEventListener(
         event.preventDefault();
 
 
-        draggedProgramBlock.remove();
+        dragDropHandled = true;
+
+        draggedStack.forEach(function (n) { n.remove(); });
 
 
         draggedProgramBlock =
             null;
+
+        draggedStack = [];
+
+        cleanupParked();
 
 
         updateRepeatPlaceholder();
@@ -4177,8 +4377,7 @@ program.addEventListener(
         );
 
 
-        draggedProgramBlock =
-            null;
+        finishProgramDrag();
 
 
         updateRepeatPlaceholder();
@@ -4272,9 +4471,7 @@ function updateBlockCounter() {
 
 
     const count =
-        program.querySelectorAll(
-            ".block, .repeat-block"
-        ).length;
+        getProgramBlockCount();
 
 
     blockCounter.textContent =
@@ -4290,9 +4487,13 @@ function updateBlockCounter() {
 
 function getProgramBlockCount() {
 
-    return program.querySelectorAll(
-        ".block, .repeat-block"
-    ).length;
+    return Array.from(
+        program.querySelectorAll(
+            ".block, .repeat-block"
+        )
+    ).filter(function (el) {
+        return !el.closest(".parked-stack");
+    }).length;
 
 }
 

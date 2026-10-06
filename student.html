@@ -62,7 +62,7 @@ input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px sol
 body{background-image:radial-gradient(#f3c98b66 2px,transparent 2px);background-size:26px 26px}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}@keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
-.mascot{display:flex;align-items:center;gap:12px;justify-content:center;margin:16px 0}.mascot span{font-size:72px;animation:bob 1.6s ease-in-out infinite}
+.mascot{display:flex;align-items:center;gap:12px;justify-content:center;margin:16px 0}.mascot img{height:110px;width:auto;animation:bob 1.6s ease-in-out infinite}
 .mascot p{margin:0;background:#fff;border:4px solid var(--o);border-radius:22px;padding:10px 18px;font-weight:800;font-size:20px}
 .node{transition:transform .2s}.node:hover{transform:translateY(-6px) rotate(-3deg)}.node.next span{animation:pulse 1.2s infinite;outline:7px solid #ffd9a8}
 .card{border:4px solid #ffe2bd}.opt{transition:transform .15s}.opt:hover{transform:scale(1.02)}.shake{animation:shake .4s}
@@ -385,7 +385,7 @@ function showHub() {
   const lockedAt = i => !!L.lockOrder && st.slice(0, i).some(x => !x.done);
   const nextI = L.challenges.findIndex((_, k) => !st[k].done && !lockedAt(k));
   shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div><button class="lo" id="lo" type="button">↩ ${esc(plain("sw"))}</button></div>
-    <div class="mascot"><span>🤖</span><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => { const lk = lockedAt(i); return `<button class="node c${i % 3}${i === nextI ? " next" : ""}${lk ? " locked" : ""}" data-i="${i}"><span>${lk ? "🔒" : st[i].done ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}<small>${st[i].txt}</small></button>`; }).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
+    <div class="mascot"><img src="assets/tunas-unggul.webp" alt="Tunas Unggul" width="100" height="110"><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => { const lk = lockedAt(i); return `<button class="node c${i % 3}${i === nextI ? " next" : ""}${lk ? " locked" : ""}" data-i="${i}"><span>${lk ? "🔒" : st[i].done ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}<small>${st[i].txt}</small></button>`; }).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
   document.getElementById("lo").onclick = () => { S = null; localStorage.removeItem("robotStudent"); sessionStorage.removeItem("robotStudent"); showLogin(); };
   app.querySelectorAll(".node").forEach(b => b.onclick = () => {
     const i = +b.dataset.i, c = L.challenges[i];
