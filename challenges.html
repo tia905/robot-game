@@ -55,14 +55,14 @@ LS.challenges = (LS.challenges || [{ type: "game", title: "Game" }]).filter(c =>
 const C = LS.challenges, list = document.getElementById("list");
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const raw = o => (o && (o.en || o.id)) || "";
-const TL = { single: "🔘 Pilihan ganda (1 jawaban benar)", multi: "☑️ Pilih banyak (boleh lebih dari 1 benar)", text: "⌨️ Isian singkat", essay: "✍️ Uraian (dicek manual)", dropdown: "🔽 Isi titik-titik", match: "🔗 Menjodohkan (pakai garis)", order: "🔢 Mengurutkan", dragdrop: "🧲 Drag & drop (teks / gambar)" };
+const TL = { single: "🔘 Pilihan ganda (1 jawaban benar)", multi: "☑️ Pilih banyak (boleh lebih dari 1 benar)", text: "⌨️ Isian singkat", essay: "✍️ Uraian (dicek manual)", dropdown: "🔽 Isi titik-titik", match: "🔗 Menjodohkan (pakai garis)", order: "🔢 Mengurutkan", dragdrop: "🧲 Drag & drop (teks / gambar)", steps: "📝 Tulis langkah (dicek manual)" };
 const tagOf = q => q.type === "choice" ? TL[q.mode === "multi" ? "multi" : "single"] : TL[q.type];
 const E = () => ({ en: "", id: "" });
 const D = {
   opt: () => ({ t: E(), img: "", ok: false }), card: () => ({ t: E() }), pair: () => ({ l: E(), r: E() }), blank: () => ({ opts: "" }),
-  dpair: () => ({ l: { t: E(), img: "" }, r: { t: E(), img: "" } }), ditem: () => ({ t: E(), img: "" }),
+  task: () => E(), dpair: () => ({ l: { t: E(), img: "" }, r: { t: E(), img: "" } }), ditem: () => ({ t: E(), img: "" }),
   q: ty => ty === "single" || ty === "multi" ? { type: "choice", mode: ty, q: E(), img: "", options: [D.opt(), D.opt()] } :
-    Object.assign({ type: ty, q: E(), img: "" }, ty === "text" ? { answers: "" } : ty === "essay" ? {} : ty === "dropdown" ? { blanks: [D.blank()] } : ty === "match" ? { pairs: [D.pair(), D.pair()] } : ty === "dragdrop" ? { pairs: [D.dpair(), D.dpair()], extras: [] } : { cards: [D.card(), D.card()], extras: [] })
+    Object.assign({ type: ty, q: E(), img: "" }, ty === "text" ? { answers: "" } : ty === "essay" ? {} : ty === "steps" ? { tasks: [E(), E()], count: 5 } : ty === "dropdown" ? { blanks: [D.blank()] } : ty === "match" ? { pairs: [D.pair(), D.pair()] } : ty === "dragdrop" ? { pairs: [D.dpair(), D.dpair()], extras: [] } : { cards: [D.card(), D.card()], extras: [] })
 };
 function norm(q) {
   if (q.type) return q;
@@ -86,6 +86,7 @@ const HELP = {
   single: "<b>Cara membuat:</b> ① tulis pertanyaan ② tulis tiap pilihan (bisa pakai gambar) ③ <b>pilih ◉ satu jawaban yang BENAR</b>. Murid hanya bisa memilih 1 jawaban.",
   multi: "<b>Cara membuat:</b> ① tulis pertanyaan ② tulis tiap pilihan ③ <b>centang ✔ semua jawaban yang BENAR</b> (boleh lebih dari satu). Murid harus memilih semuanya dengan tepat.",
   essay: "<b>Cara membuat:</b> tulis pertanyaannya saja. Jawaban murid <b>tidak dinilai otomatis</b>, tapi tersimpan di Sheet dengan tanda <i>cek manual</i>. Kamu bisa menilainya sendiri dengan mengetik <b>✔</b> atau <b>✘</b> di akhir isi sel jawaban di Sheet (nilai langsung terhitung ulang).",
+  steps: "<b>Cara membuat:</b> ① tulis instruksi (contoh: <i>Choose a task and write the steps. Then ask a friend to follow them exactly, like a robot.</i>) ② isi <b>daftar tugas</b> yang boleh dipilih murid (dropdown) ③ atur <b>jumlah kolom langkah</b> awal; murid bisa menambah kolom sendiri (maks 15). Jawaban <b>tidak dinilai otomatis</b>: tersimpan di Sheet (tugas + semua langkah) dengan tanda <i>cek manual</i>. Nilai dengan mengetik <b>✔</b>/<b>✘</b> di akhir sel.",
   dragdrop: "<b>Cara membuat:</b> tiap baris = 1 kotak tujuan (kiri) + <b>jawaban yang benar</b> untuk kotak itu (kanan). Teks dan/atau gambar boleh dipakai di kiri maupun kanan. Murid menyeret kartu jawaban (teks atau gambar) ke kotak yang tepat. <i>Kartu pengecoh</i> = jawaban salah tambahan (opsional).",
   text: "<b>Cara membuat:</b> ① tulis pertanyaan ② di kotak bawah tulis <b>jawaban yang benar</b>. Kalau ada beberapa jawaban yang boleh, pisahkan dengan koma (contoh: <i>kucing, cat</i>). Dikosongkan = tidak dinilai, hanya dicatat.",
   dropdown: "<b>Cara membuat:</b> ① tulis kalimat, ganti bagian yang dikosongkan dengan <b>___</b> (3 garis bawah) ② isi pilihan tiap kotak, dipisah koma. <b>Pilihan PERTAMA = jawaban benar</b> (murid melihatnya diacak).",
@@ -99,6 +100,8 @@ function qForm0(q, b) {
   if (q.type === "choice") h += q.options.map((o, k) => `<div class="row"><label class="ck"><input type="${q.mode === "multi" ? "checkbox" : "radio"}" ${q.mode === "multi" ? "" : `name="r${b}" data-single="${b}.options" data-k="${k}"`} data-p="${b}.options.${k}.ok" ${o.ok ? "checked" : ""}> ✔</label>${bi(`${b}.options.${k}.t`, o.t, "Option " + (k + 1))}${pic(`${b}.options.${k}.img`, o.img, "Pic")}${q.options.length > 2 ? del(`${b}.options.${k}`) : ""}</div>`).join("") + add(b + ".options", "opt", "Option") + `<p class="hint">${q.mode === "multi" ? "Tick ✔ on every correct option." : "Select the ONE correct option (students can only pick one)."}</p>`;
   if (q.type === "text") h += `<input type="text" class="wide" data-p="${b}.answers" value="${esc(q.answers)}" placeholder="Accepted answers separated by commas. Leave empty = not graded (just recorded)">`;
   if (q.type === "dropdown") h += `<p class="hint">Write ___ (3 underscores) in the question for each blank. Then list the choices per blank: the FIRST is the correct one (students see them shuffled).</p>` + q.blanks.map((x, k) => `<div class="row"><b>Blank ${k + 1}</b><input type="text" data-p="${b}.blanks.${k}.opts" value="${esc(x.opts)}" placeholder="correct, wrong, wrong">${q.blanks.length > 1 ? del(`${b}.blanks.${k}`) : ""}</div>`).join("") + add(b + ".blanks", "blank", "Blank");
+  if (q.type === "steps") h += `<p class="hint">Task choices (shown as a dropdown, students pick one):</p>` + q.tasks.map((t, k) => `<div class="row"><b>${k + 1}</b>${bi(`${b}.tasks.${k}`, t, "Task")}${q.tasks.length > 1 ? del(`${b}.tasks.${k}`) : ""}</div>`).join("") + add(b + ".tasks", "task", "Task") +
+    `<div class="row"><label class="att">📝 Jumlah kolom langkah awal <input type="number" min="2" max="15" data-p="${b}.count" value="${esc(q.count || 5)}"></label><span class="hint">Murid bisa menambah kolom sendiri.</span></div>`;
   if (q.type === "match") h += q.pairs.map((p, k) => `<div class="row">${bi(`${b}.pairs.${k}.l`, p.l, "Left")}<span>↔</span>${bi(`${b}.pairs.${k}.r`, p.r, "Match")}${q.pairs.length > 2 ? del(`${b}.pairs.${k}`) : ""}</div>`).join("") + add(b + ".pairs", "pair", "Pair");
   if (q.type === "dragdrop") h += `<p class="hint">Each row: drop box (left) ← correct card (right). Both sides can have text and/or a picture.</p>` + q.pairs.map((p, k) => `<div class="row"><b>${k + 1}</b><div class="bi2">${bi(`${b}.pairs.${k}.l.t`, p.l.t, "Drop box")}${pic(`${b}.pairs.${k}.l.img`, p.l.img, "Pic")}</div><span>⬅</span><div class="bi2">${bi(`${b}.pairs.${k}.r.t`, p.r.t, "Correct card")}${pic(`${b}.pairs.${k}.r.img`, p.r.img, "Pic")}</div>${q.pairs.length > 2 ? del(`${b}.pairs.${k}`) : ""}</div>`).join("") + add(b + ".pairs", "dpair", "Drop box") +
     `<p class="hint">Extra cards (wrong ones, optional):</p>` + q.extras.map((c, k) => `<div class="row">${bi(`${b}.extras.${k}.t`, c.t, "Extra card")}${pic(`${b}.extras.${k}.img`, c.img, "Pic")}${del(`${b}.extras.${k}`)}</div>`).join("") + add(b + ".extras", "ditem", "Extra card");
@@ -166,6 +169,10 @@ function problem() {
       if (q.type === "dropdown") {
         if (cnt(q.q.en) !== q.blanks.length || (q.q.id && cnt(q.q.id) !== q.blanks.length)) return w + `the number of ___ must equal the number of blank lists (${q.blanks.length}).`;
         if (q.blanks.some(x => x.opts.split(",").filter(s => s.trim()).length < 2)) return w + "each blank needs at least 2 choices.";
+      }
+      if (q.type === "steps") {
+        if (!q.tasks.length || q.tasks.some(x => !raw(x).trim())) return w + "fill in every task choice (or delete the empty ones).";
+        const n = Math.floor(+q.count); if (!(n >= 2 && n <= 15)) return w + "the number of step boxes must be between 2 and 15.";
       }
       if (q.type === "match" && q.pairs.some(p => !raw(p.l) || !raw(p.r))) return w + "fill in every pair.";
       if (q.type === "order" && (q.cards.some(x => !raw(x.t)) || q.extras.some(x => !raw(x.t)))) return w + "fill in every card.";

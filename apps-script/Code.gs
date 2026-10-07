@@ -126,7 +126,8 @@ function cell_(it) {
   if (it.status === "benar") return { v: "✔" + n, note: "Jawaban: " + a, bg: OK_BG };
   if (it.status === "salah") return { v: "✘" + n, note: "Jawaban: " + a, bg: NO_BG };
   // uraian / isian tanpa kunci: tampilkan awalnya saja, perlu dicek manual
-  return { v: a.length > 40 ? a.slice(0, 40) + "…" : a, note: a, bg: TXT_BG };
+  var flat = a.replace(/\s*\n\s*/g, " · ");
+  return { v: flat.length > 40 ? flat.slice(0, 40) + "…" : flat, note: a, bg: TXT_BG };
 }
 function bgOf_(v) {
   v = String(v == null ? "" : v);

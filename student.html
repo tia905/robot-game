@@ -51,6 +51,7 @@ input,select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px sol
 .dz{padding:8px;border:3px dashed #9db4e0;border-radius:16px;min-height:120px;background:#fff;text-align:center}.dz.sel{border-color:var(--o);background:#fff6ea}
 .dzl{font-weight:800;margin-bottom:6px}.dzl img{display:block;max-width:100%;max-height:90px;margin:0 auto 4px;border-radius:8px}.dzb{min-height:52px;display:grid;place-items:center}.dzb .cd{margin:0}.ph{opacity:.35;font-size:26px}
 .fix{margin-top:6px;font-size:14px;font-weight:700;color:#2a7a22}.fix img{max-height:48px;display:block;margin:0 auto}
+.sl{display:block;font-weight:800;margin:12px 0 4px}.tk{width:100%;font:inherit;font-size:18px;padding:12px;border:3px solid #cfdcf3;border-radius:14px;background:#fff}.stl .ti{width:100%;margin:0}.addst{margin-top:12px;font:inherit;font-weight:800;padding:10px 16px;border:3px dashed #cfdcf3;border-radius:14px;background:#fff;color:#1d4a8a;cursor:pointer}
 .ta{font-family:inherit;font-size:18px;padding:10px 12px;border:3px solid #cfdcf3;border-radius:14px;width:100%;margin:6px 0}
 .trow{text-align:center;margin:-6px 0 12px}.trow:empty{display:none}.tries{display:inline-block;padding:3px 12px;background:#fff1e0;border:3px solid var(--o);border-radius:14px;font-weight:800;font-size:16px}
 .slots,.pool{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
@@ -87,7 +88,7 @@ const UI = {
   hello: { en: "Hello", id: "Halo" }, check: { en: "CHECK", id: "PERIKSA" }, next: { en: "NEXT", id: "LANJUT" }, finish: { en: "FINISH", id: "SELESAI" },
   good: { en: "Great job! 🎉", id: "Hebat! 🎉" }, bad: { en: "Not quite. Keep learning! 💪", id: "Belum tepat. Terus belajar! 💪" }, saved: { en: "Answer saved ✅", id: "Jawaban tersimpan ✅" },
   ans: { en: "Please answer first.", id: "Jawab dulu ya." }, all: { en: "All done!", id: "Semua selesai!" }, addbox: { en: "+ Add box", id: "+ Tambah kotak" },
-  type: { en: "Type your answer", id: "Ketik jawabanmu" }, fill: { en: "Fill in your name and class first.", id: "Isi nama dan kelas dulu ya." },
+  type: { en: "Type your answer", id: "Ketik jawabanmu" }, mytask: { en: "My task", id: "Tugasku" }, pickTask: { en: "Choose a task", id: "Pilih tugas" }, step: { en: "Step", id: "Langkah" }, addstep: { en: "+ Add step", id: "+ Tambah langkah" }, fill: { en: "Fill in your name and class first.", id: "Isi nama dan kelas dulu ya." },
   err: { en: "Lesson not found. Ask your teacher for a new link.", id: "Lesson tidak ditemukan. Minta link baru ke gurumu." }, load: { en: "Loading...", id: "Memuat..." },
   locked: { en: "Finish the previous challenge first 🔒", id: "Selesaikan challenge sebelumnya dulu 🔒" },
   sw: { en: "Not you? Change name", id: "Bukan kamu? Ganti nama" }, retry: { en: "TRY AGAIN", id: "ULANGI" },
@@ -152,6 +153,28 @@ const TYPES = {
     bind: (r, q) => {
       const i = r.querySelector(".ti"), acc = (q.answers || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
       return { get: () => ({ done: !!i.value.trim(), ok: acc.length ? acc.includes(i.value.trim().toLowerCase()) : null, text: i.value.trim() }), show: () => { i.disabled = true; }, soft: () => { i.focus(); i.select(); } };
+    }
+  },
+  steps: {
+    draw: q => {
+      const n = Math.max(2, Math.min(15, Math.floor(+q.count) || 5)), tk = q.tasks || [];
+      return `<label class="sl">${esc(plain("mytask"))}</label><select class="tk"><option value="">${esc(plain("pickTask"))}</option>${tk.map((t, i) => `<option value="${i}">${esc(lang === "id" && t.id ? t.id : t.en)}</option>`).join("")}</select><div class="stl">${Array.from({ length: n }, (_, i) => `<label class="sl">${esc(plain("step"))} ${i + 1}</label><input class="ti stp">`).join("")}</div><button type="button" class="addst">${esc(plain("addstep"))}</button>`;
+    },
+    bind: (r, q) => {
+      const sel = r.querySelector(".tk"), box = r.querySelector(".stl"), btn = r.querySelector(".addst");
+      btn.onclick = () => {
+        const k = box.querySelectorAll(".stp").length; if (k >= 15) return;
+        box.insertAdjacentHTML("beforeend", `<label class="sl">${esc(plain("step"))} ${k + 1}</label><input class="ti stp">`);
+        box.lastElementChild.focus(); if (k + 1 >= 15) btn.style.display = "none";
+      };
+      return {
+        get: () => {
+          const st = [...box.querySelectorAll(".stp")].map(i => i.value.trim()).filter(Boolean), t = sel.value === "" ? null : q.tasks[+sel.value];
+          const task = t ? (raw(t)) : "";
+          return { done: sel.value !== "" && st.length > 0, ok: null, text: task + "\n" + st.map((s, i) => (i + 1) + ". " + s).join("\n") };
+        },
+        show: () => { sel.disabled = true; box.querySelectorAll(".stp").forEach(i => i.disabled = true); btn.style.display = "none"; }
+      };
     }
   },
   essay: {
