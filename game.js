@@ -4528,7 +4528,7 @@ function isMaximumBlocksReached() {
    Angka makin BESAR = robot makin LAMBAT (milidetik per langkah).
    Dulu 500. Coba 700 (agak lambat), 900 (lambat), 1200 (sangat lambat).
 ========================================================= */
-const STEP_DELAY = 900;
+const STEP_DELAY = 700;
 document.documentElement.style.setProperty("--step-glide", (STEP_DELAY * 0.65 / 1000) + "s");
 
 /* =========================================================
