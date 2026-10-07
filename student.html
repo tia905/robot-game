@@ -157,21 +157,20 @@ const TYPES = {
   },
   steps: {
     draw: q => {
-      const n = Math.max(2, Math.min(15, Math.floor(+q.count) || 5)), tk = q.tasks || [];
-      return `<label class="sl">${esc(plain("mytask"))}</label><select class="tk"><option value="">${esc(plain("pickTask"))}</option>${tk.map((t, i) => `<option value="${i}">${esc(lang === "id" && t.id ? t.id : t.en)}</option>`).join("")}</select><div class="stl">${Array.from({ length: n }, (_, i) => `<label class="sl">${esc(plain("step"))} ${i + 1}</label><input class="ti stp">`).join("")}</div><button type="button" class="addst">${esc(plain("addstep"))}</button>`;
+      const n = Math.max(2, Math.min(15, Math.floor(+q.count) || 5)), tk = q.tasks || [], ui = k => bt(UI[k].en, UI[k].id, "label", "sl");
+      return `${ui("mytask")}<select class="tk"><option value="" data-en="${esc(UI.pickTask.en)}" data-id="${esc(UI.pickTask.id)}">${esc(UI.pickTask.en)}</option>${tk.map((t, i) => `<option value="${i}" data-en="${esc(t.en || t.id)}" data-id="${esc(t.id || t.en)}">${esc(t.en || t.id)}</option>`).join("")}</select><div class="stl">${Array.from({ length: n }, (_, i) => stepRow(i + 1)).join("")}</div><button type="button" class="addst" data-en="${esc(UI.addstep.en)}" data-id="${esc(UI.addstep.id)}">${esc(UI.addstep.en)}</button>`;
     },
     bind: (r, q) => {
       const sel = r.querySelector(".tk"), box = r.querySelector(".stl"), btn = r.querySelector(".addst");
       btn.onclick = () => {
         const k = box.querySelectorAll(".stp").length; if (k >= 15) return;
-        box.insertAdjacentHTML("beforeend", `<label class="sl">${esc(plain("step"))} ${k + 1}</label><input class="ti stp">`);
+        box.insertAdjacentHTML("beforeend", stepRow(k + 1)); applyLang();
         box.lastElementChild.focus(); if (k + 1 >= 15) btn.style.display = "none";
       };
       return {
         get: () => {
           const st = [...box.querySelectorAll(".stp")].map(i => i.value.trim()).filter(Boolean), t = sel.value === "" ? null : q.tasks[+sel.value];
-          const task = t ? (raw(t)) : "";
-          return { done: sel.value !== "" && st.length > 0, ok: null, text: task + "\n" + st.map((s, i) => (i + 1) + ". " + s).join("\n") };
+          return { done: sel.value !== "" && st.length > 0, ok: null, text: (t ? raw(t) : "") + "\n" + st.map((s, i) => (i + 1) + ". " + s).join("\n") };
         },
         show: () => { sel.disabled = true; box.querySelectorAll(".stp").forEach(i => i.disabled = true); btn.style.display = "none"; }
       };
@@ -187,16 +186,21 @@ const TYPES = {
   dropdown: {
     own: 1,
     draw: q => {
-      q._sh = q.blanks.map(b => shuffle(b.opts.split(",").map(s => s.trim()).filter(Boolean))); let n = 0;
-      const main = q.q.en || q.q.id, sub = q.q.en && q.q.id ? q.q.id : "";
-      return `<h2 class="dp">${esc(main).replace(/___/g, () => `<select><option value="">?</option>${(q._sh[n++] || []).map(o => `<option>${esc(o)}</option>`).join("")}</select>`)}</h2>${sub ? `<small class="tr">${esc(sub).replace(/___/g, "____")}</small>` : ""}`;
+      const n = q.blanks.length, en = (q.q.en || q.q.id || "").split("___"), idt = q.q.id && q.q.id.split("___").length === en.length ? q.q.id.split("___") : en;
+      q._ord = q.blanks.map(bl => shuffle(optList(bl).en.map((_, i) => i)));
+      let h = "";
+      for (let i = 0; i < en.length; i++) {
+        h += `<span data-en="${esc(en[i])}" data-id="${esc(idt[i])}">${esc(en[i])}</span>`;
+        if (i < n) { const ol = optList(q.blanks[i]); h += `<select>${'<option value="">?</option>'}${q._ord[i].map(k => `<option value="${k}" data-en="${esc(ol.en[k])}" data-id="${esc(ol.id[k])}">${esc(ol.en[k])}</option>`).join("")}</select>`; }
+      }
+      return `<h2 class="dp">${h}</h2>`;
     },
     bind: (r, q) => {
-      const ss = [...r.querySelectorAll("select")], key = i => q.blanks[i].opts.split(",")[0].trim();
+      const ss = [...r.querySelectorAll("select")];
       return {
-        get: () => ({ done: ss.every(s => s.value), ok: ss.every((s, i) => s.value === key(i)), text: ss.map(s => s.value).join(" | ") }),
-        show: () => ss.forEach((s, i) => { s.disabled = true; s.classList.add(s.value === key(i) ? "right" : "wrong"); }),
-        soft: () => ss.forEach((s, i) => { if (s.value !== key(i)) s.value = ""; })
+        get: () => ({ done: ss.every(s => s.value !== ""), ok: ss.every(s => s.value === "0"), text: ss.map((s, i) => s.value === "" ? "" : optList(q.blanks[i]).en[+s.value]).join(" | ") }),
+        show: () => ss.forEach(s => { s.disabled = true; s.classList.add(s.value === "0" ? "right" : "wrong"); }),
+        soft: () => ss.forEach(s => { if (s.value !== "0") s.value = ""; })
       };
     }
   },
@@ -332,12 +336,18 @@ const TYPES = {
     }
   }
 };
+/* pilihan dropdown "isi titik-titik": en = daftar utama (urutan pertama = benar); id dipakai hanya kalau jumlahnya sama */
+const stepRow = n => `<label class="sl" data-en="${esc(UI.step.en)} ${n}" data-id="${esc(UI.step.id)} ${n}">${esc(UI.step.en)} ${n}</label><input class="ti stp">`;
+const splitList = t => String(t || "").split(",").map(x => x.trim()).filter(Boolean);
+const optList = bl => { const o = bl.o || { en: bl.opts || "", id: "" }, en = splitList(o.en), id = splitList(o.id); return { en, id: id.length === en.length ? id : en }; };
+const bt = (en, id, tag, cls) => `<${tag}${cls ? ` class="${cls}"` : ""} data-en="${esc(en)}" data-id="${esc(id || en)}">${esc(en)}</${tag}>`;
 const isMulti = q => q.mode ? q.mode === "multi" : q.options.filter(o => o.ok).length > 1;
 
 function applyLang() {
   const on = lang === "id";
   document.body.classList.toggle("id-on", on);
   document.querySelectorAll(".idt").forEach(b => { b.textContent = on ? "ID ✓" : "ID"; b.classList.toggle("on", on); });
+  document.querySelectorAll("[data-en]").forEach(e => { e.textContent = on && e.dataset.id ? e.dataset.id : e.dataset.en; });
   document.querySelectorAll("[data-ph]").forEach(e => { const t = plain(e.dataset.ph); if (e.tagName === "OPTION") e.textContent = t; else e.placeholder = t; });
 }
 function shell(inner, lg) {

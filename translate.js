@@ -35,6 +35,7 @@ async function autoTranslate(lesson, key) {
             t = _decode(t || "").replace(/\[\s*\d+\s*\]/g, "___");
             const want = (o.en.match(/___/g) || []).length, got = (t.match(/___/g) || []).length;
             if (!t.trim() || want !== got) { failed++; return; }
+            if (o.list && t.split(",").length !== o.en.split(",").length) { failed++; return; }
             o.id = t; o.auto = o.en; done++;
         });
     });

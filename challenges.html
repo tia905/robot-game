@@ -59,7 +59,7 @@ const TL = { single: "🔘 Pilihan ganda (1 jawaban benar)", multi: "☑️ Pili
 const tagOf = q => q.type === "choice" ? TL[q.mode === "multi" ? "multi" : "single"] : TL[q.type];
 const E = () => ({ en: "", id: "" });
 const D = {
-  opt: () => ({ t: E(), img: "", ok: false }), card: () => ({ t: E() }), pair: () => ({ l: E(), r: E() }), blank: () => ({ opts: "" }),
+  opt: () => ({ t: E(), img: "", ok: false }), card: () => ({ t: E() }), pair: () => ({ l: E(), r: E() }), blank: () => ({ o: { en: "", id: "", list: true } }),
   task: () => E(), dpair: () => ({ l: { t: E(), img: "" }, r: { t: E(), img: "" } }), ditem: () => ({ t: E(), img: "" }),
   q: ty => ty === "single" || ty === "multi" ? { type: "choice", mode: ty, q: E(), img: "", options: [D.opt(), D.opt()] } :
     Object.assign({ type: ty, q: E(), img: "" }, ty === "text" ? { answers: "" } : ty === "essay" ? {} : ty === "steps" ? { tasks: [E(), E()], count: 5 } : ty === "dropdown" ? { blanks: [D.blank()] } : ty === "match" ? { pairs: [D.pair(), D.pair()] } : ty === "dragdrop" ? { pairs: [D.dpair(), D.dpair()], extras: [] } : { cards: [D.card(), D.card()], extras: [] })
@@ -69,7 +69,7 @@ function norm(q) {
   return { type: "choice", q: { en: q.q || "", id: "" }, img: q.img || "", options: (q.options || []).map((o, k) => ({ t: { en: o.text || "", id: "" }, img: o.img || "", ok: k === q.correct })) };
 }
 const newId = () => Math.random().toString(36).slice(2, 8);
-C.forEach(c => { if (!c.cid) c.cid = newId(); if (c.type === "quiz") { c.questions = c.questions.map(norm); if (!c.attempts) c.attempts = 1; c.questions.forEach(q => { if (q.type === "choice" && !q.mode) q.mode = q.options.filter(o => o.ok).length > 1 ? "multi" : "single"; }); } });
+C.forEach(c => { if (!c.cid) c.cid = newId(); if (c.type === "quiz") { c.questions = c.questions.map(norm); c.questions.forEach(q => { if (q.type === "dropdown") q.blanks = q.blanks.map(b => b.o ? b : { o: { en: b.opts || "", id: "", list: true } }); }); if (!c.attempts) c.attempts = 1; c.questions.forEach(q => { if (q.type === "choice" && !q.mode) q.mode = q.options.filter(o => o.ok).length > 1 ? "multi" : "single"; }); } });
 const lockBox = document.getElementById("lock");
 lockBox.checked = !!LS.lockOrder;
 lockBox.onchange = () => { LS.lockOrder = lockBox.checked; };
@@ -99,7 +99,7 @@ function qForm0(q, b) {
   let h = `<div class="q"><div class="qh"><span class="tag">Question ${num} · ${tagOf(q)}</span><span><button class="dup" data-a="dup" data-p="${b}">⧉ Duplicate</button> ${del(b)}</span></div><div class="row">${bi(b + ".q", q.q, "Question")}</div><div class="row">${pic(b + ".img", q.img, "Picture")}</div>`;
   if (q.type === "choice") h += q.options.map((o, k) => `<div class="row"><label class="ck"><input type="${q.mode === "multi" ? "checkbox" : "radio"}" ${q.mode === "multi" ? "" : `name="r${b}" data-single="${b}.options" data-k="${k}"`} data-p="${b}.options.${k}.ok" ${o.ok ? "checked" : ""}> ✔</label>${bi(`${b}.options.${k}.t`, o.t, "Option " + (k + 1))}${pic(`${b}.options.${k}.img`, o.img, "Pic")}${q.options.length > 2 ? del(`${b}.options.${k}`) : ""}</div>`).join("") + add(b + ".options", "opt", "Option") + `<p class="hint">${q.mode === "multi" ? "Tick ✔ on every correct option." : "Select the ONE correct option (students can only pick one)."}</p>`;
   if (q.type === "text") h += `<input type="text" class="wide" data-p="${b}.answers" value="${esc(q.answers)}" placeholder="Accepted answers separated by commas. Leave empty = not graded (just recorded)">`;
-  if (q.type === "dropdown") h += `<p class="hint">Write ___ (3 underscores) in the question for each blank. Then list the choices per blank: the FIRST is the correct one (students see them shuffled).</p>` + q.blanks.map((x, k) => `<div class="row"><b>Blank ${k + 1}</b><input type="text" data-p="${b}.blanks.${k}.opts" value="${esc(x.opts)}" placeholder="correct, wrong, wrong">${q.blanks.length > 1 ? del(`${b}.blanks.${k}`) : ""}</div>`).join("") + add(b + ".blanks", "blank", "Blank");
+  if (q.type === "dropdown") h += `<p class="hint">Write ___ (3 underscores) in the question for each blank. Then list the choices per blank: the FIRST is the correct one (students see them shuffled).</p>` + q.blanks.map((x, k) => `<div class="row"><b>Blank ${k + 1}</b>${bi(`${b}.blanks.${k}.o`, x.o, "correct, wrong, wrong")}${q.blanks.length > 1 ? del(`${b}.blanks.${k}`) : ""}</div>`).join("") + add(b + ".blanks", "blank", "Blank");
   if (q.type === "steps") h += `<p class="hint">Task choices (shown as a dropdown, students pick one):</p>` + q.tasks.map((t, k) => `<div class="row"><b>${k + 1}</b>${bi(`${b}.tasks.${k}`, t, "Task")}${q.tasks.length > 1 ? del(`${b}.tasks.${k}`) : ""}</div>`).join("") + add(b + ".tasks", "task", "Task") +
     `<div class="row"><label class="att">📝 Jumlah kolom langkah awal <input type="number" min="2" max="15" data-p="${b}.count" value="${esc(q.count || 5)}"></label><span class="hint">Murid bisa menambah kolom sendiri.</span></div>`;
   if (q.type === "match") h += q.pairs.map((p, k) => `<div class="row">${bi(`${b}.pairs.${k}.l`, p.l, "Left")}<span>↔</span>${bi(`${b}.pairs.${k}.r`, p.r, "Match")}${q.pairs.length > 2 ? del(`${b}.pairs.${k}`) : ""}</div>`).join("") + add(b + ".pairs", "pair", "Pair");
@@ -168,7 +168,9 @@ function problem() {
       }
       if (q.type === "dropdown") {
         if (cnt(q.q.en) !== q.blanks.length || (q.q.id && cnt(q.q.id) !== q.blanks.length)) return w + `the number of ___ must equal the number of blank lists (${q.blanks.length}).`;
-        if (q.blanks.some(x => x.opts.split(",").filter(s => s.trim()).length < 2)) return w + "each blank needs at least 2 choices.";
+        const nl = t => t.split(",").filter(s => s.trim()).length;
+        if (q.blanks.some(x => nl(x.o.en) < 2)) return w + "each blank needs at least 2 choices.";
+        if (q.blanks.some(x => x.o.id.trim() && nl(x.o.id) !== nl(x.o.en))) return w + "the Indonesian choices must have the same number of items as the English ones (comma-separated, same order).";
       }
       if (q.type === "steps") {
         if (!q.tasks.length || q.tasks.some(x => !raw(x).trim())) return w + "fill in every task choice (or delete the empty ones).";
