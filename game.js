@@ -2482,7 +2482,7 @@ async function moveForward() {
     updateRobot();
 
 
-    await wait(500);
+    await wait(STEP_DELAY);
 
 
     return true;
@@ -2512,7 +2512,7 @@ async function turnRight() {
     updateRobot();
 
 
-    await wait(500);
+    await wait(STEP_DELAY);
 
 }
 
@@ -2539,7 +2539,7 @@ async function turnLeft() {
     updateRobot();
 
 
-    await wait(500);
+    await wait(STEP_DELAY);
 
 }
 
@@ -4522,6 +4522,14 @@ function isMaximumBlocksReached() {
 
 }
 
+
+/* =========================================================
+   KECEPATAN ROBOT
+   Angka makin BESAR = robot makin LAMBAT (milidetik per langkah).
+   Dulu 500. Coba 700 (agak lambat), 900 (lambat), 1200 (sangat lambat).
+========================================================= */
+const STEP_DELAY = 900;
+document.documentElement.style.setProperty("--step-glide", (STEP_DELAY * 0.65 / 1000) + "s");
 
 /* =========================================================
    WAIT
