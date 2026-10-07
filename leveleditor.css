@@ -967,3 +967,24 @@ body {
 .level-list-item.is-bonus::before {
     content: "⭐ ";
 }
+
+
+/* =========================================================
+   DELETE LEVEL BUTTON
+========================================================= */
+.delete-level-button {
+    width: 100%;
+    margin-top: 12px;
+    padding: 9px 12px;
+    border: 2px solid #e0483e;
+    border-radius: 10px;
+    background: #fff;
+    color: #c62f26;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.delete-level-button:hover {
+    background: #e0483e;
+    color: #fff;
+}

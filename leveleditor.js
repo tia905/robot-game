@@ -2813,3 +2813,42 @@ if (bonusInput) {
 loadLessonInfo();
 
 loadCurrentLevel();
+
+/* =========================================================
+   DELETE LEVEL
+========================================================= */
+const deleteLevelButton = document.getElementById("delete-level-button");
+if (deleteLevelButton) {
+    deleteLevelButton.addEventListener("click", function () {
+        if (lesson.levels.length <= 1) {
+            alert("Minimal harus ada 1 level.");
+            return;
+        }
+        const target = lesson.levels[currentLevelIndex];
+        const name = (target && target.title) || ("Level " + (currentLevelIndex + 1));
+        if (!confirm("Hapus \"" + name + "\"?\nLevel ini akan hilang dan tidak bisa dikembalikan.")) {
+            return;
+        }
+        lesson.levels.splice(currentLevelIndex, 1);
+        // rapikan nomor level dan judul bawaan ("Level 5" -> "Level 4")
+        lesson.levels.forEach(function (lv, i) {
+            lv.level = i + 1;
+            if (/^Level \d+$/.test(lv.title || "")) {
+                lv.title = "Level " + (i + 1);
+            }
+        });
+        // penting: prepareLevels() membuat ulang level kalau jumlahnya lebih kecil dari ini
+        lesson.numberOfLevels = lesson.levels.length;
+        lesson.bonusLevels = getBonusCount();
+        if (currentLevelIndex >= lesson.levels.length) {
+            currentLevelIndex = lesson.levels.length - 1;
+        }
+        if (bonusInput) {
+            bonusInput.max = Math.max(0, lesson.levels.length - 1);
+            bonusInput.value = getBonusCount();
+        }
+        localStorage.setItem("robotLessons", JSON.stringify(lessons));
+        saveStatus.textContent = "Saved";
+        loadCurrentLevel();
+    });
+}
