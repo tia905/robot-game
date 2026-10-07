@@ -978,3 +978,40 @@ body {
 .parked-stack:hover {
     opacity: 0.8;
 }
+
+
+/* =========================================================
+   HIGHLIGHT BLOK YANG SEDANG DIJALANKAN
+   Saat RUN: panel kode digelapkan, hanya peta/robot dan blok aktif berwarna
+========================================================= */
+.blocks-panel,
+.program-panel {
+    transition: background 0.25s;
+}
+.code-running .blocks-panel,
+.code-running .program-panel {
+    background: #595959 !important;
+}
+.code-running .program-header h2,
+.code-running .block-counter {
+    color: #e8e8e8;
+}
+.code-running .block:not(.block-active),
+.code-running .repeat-header,
+.code-running .repeat-block::before,
+.code-running .repeat-block::after {
+    filter: brightness(0.42) saturate(0.8);
+    transition: filter 0.2s;
+}
+.code-running .repeat-block.block-parent-active > .repeat-header,
+.code-running .repeat-block.block-parent-active::before,
+.code-running .repeat-block.block-parent-active::after {
+    filter: none;
+}
+.block.block-active {
+    filter: none !important;
+    outline: 3px solid #ffd43b;
+    outline-offset: 2px;
+    box-shadow: 0 0 14px 2px rgba(255, 212, 59, 0.85);
+    z-index: 8;
+}

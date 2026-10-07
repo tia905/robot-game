@@ -4637,6 +4637,27 @@ async function runCommand(
    RUN PROGRAM BLOCK
 ========================================================= */
 
+/* =========================================================
+   HIGHLIGHT BLOK YANG SEDANG DIJALANKAN
+   (blok lain digelapkan, hanya peta + blok aktif yang berwarna)
+========================================================= */
+function setActiveBlock(el, parent) {
+    program.querySelectorAll(".block-active, .block-parent-active").forEach(function (e) {
+        e.classList.remove("block-active", "block-parent-active");
+    });
+    if (el) {
+        el.classList.add("block-active");
+        var p = el.parentElement && el.parentElement.closest(".repeat-block");
+        if (p) { p.classList.add("block-parent-active"); }
+        try { el.scrollIntoView({ block: "nearest" }); } catch (e) {}
+    }
+    if (parent) { parent.classList.add("block-parent-active"); }
+}
+function setCodeRunning(on) {
+    document.body.classList.toggle("code-running", on);
+    if (!on) { setActiveBlock(null); }
+}
+
 async function runProgramBlock(
     block
 ) {
@@ -4657,6 +4678,7 @@ async function runProgramBlock(
             "repeat-block"
         )
     ) {
+        setActiveBlock(null, block);
 
         const input =
             block.querySelector(
@@ -4725,10 +4747,8 @@ async function runProgramBlock(
                 }
 
 
-                const success =
-                    await runCommand(
-                        nestedBlock.dataset.command
-                    );
+                setActiveBlock(nestedBlock);
+                const success = await runCommand(nestedBlock.dataset.command);
 
 
                 if (!success) {
@@ -4751,6 +4771,7 @@ async function runProgramBlock(
        NORMAL BLOCK
     ===================================================== */
 
+    setActiveBlock(block);
     return await runCommand(
         block.dataset.command
     );
@@ -4836,6 +4857,7 @@ runButton.addEventListener(
 
         isRunning =
             true;
+        setCodeRunning(true);
 
 
         /*
@@ -4884,6 +4906,7 @@ runButton.addEventListener(
         }
 
 
+        setCodeRunning(false);
         if (hasCollided) {
 
             showCollisionMessage();
