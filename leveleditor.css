@@ -1056,3 +1056,11 @@ body {
     line-height: 1.45;
     color: #6b7a70;
 }
+
+.tool-button.cargo-tool {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 0;
+    height: auto;
+}

@@ -198,7 +198,7 @@ function updateCargoToolsVisibility() {
         .forEach(function(button) {
 
             button.style.display =
-                show ? "inline-flex" : "none";
+                allowed ? "inline-flex" : "none";
 
         });
 
@@ -317,50 +317,64 @@ function renderCargoMarkers() {
     });
 }
 
+function setCargoEnabled(on) {
+
+    currentCargoEnabled =
+        Boolean(on) && isCargoAllowed();
+
+    if (cargoEnabledInput) {
+
+        cargoEnabledInput.checked =
+            currentCargoEnabled;
+
+    }
+
+    // block AMBIL & LETAKKAN ikut dicentang / dilepas
+    availableBlocksList
+        .querySelectorAll('input[type="checkbox"]')
+        .forEach(function(checkbox) {
+
+            if (
+                checkbox.value === "pickup" ||
+                checkbox.value === "putdown"
+            ) {
+
+                checkbox.checked =
+                    currentCargoEnabled;
+
+            }
+
+        });
+
+    if (
+        !currentCargoEnabled &&
+        (
+            currentTool === "cargoBox" ||
+            currentTool === "cargoZone"
+        )
+    ) {
+
+        setActiveTool("path");
+
+    }
+
+    updateCargoToolsVisibility();
+
+    updateAllMapCells();
+
+    saveStatus.textContent =
+        "Unsaved changes";
+}
+
 if (cargoEnabledInput) {
 
     cargoEnabledInput.addEventListener(
         "change",
         function() {
 
-            currentCargoEnabled =
-                cargoEnabledInput.checked;
-
-            // block AMBIL & LETAKKAN ikut dicentang / dilepas
-            availableBlocksList
-                .querySelectorAll('input[type="checkbox"]')
-                .forEach(function(checkbox) {
-
-                    if (
-                        checkbox.value === "pickup" ||
-                        checkbox.value === "putdown"
-                    ) {
-
-                        checkbox.checked =
-                            currentCargoEnabled;
-
-                    }
-
-                });
-
-            if (
-                !currentCargoEnabled &&
-                (
-                    currentTool === "cargoBox" ||
-                    currentTool === "cargoZone"
-                )
-            ) {
-
-                setActiveTool("path");
-
-            }
-
-            updateCargoToolsVisibility();
-
-            updateAllMapCells();
-
-            saveStatus.textContent =
-                "Unsaved changes";
+            setCargoEnabled(
+                cargoEnabledInput.checked
+            );
 
         }
     );
@@ -1452,6 +1466,20 @@ function updateBuildingToolsVisibility() {
 ========================================================= */
 
 function setActiveTool(tool) {
+
+    if (
+        (
+            tool === "cargoBox" ||
+            tool === "cargoZone"
+        ) &&
+        !currentCargoEnabled &&
+        isCargoAllowed()
+    ) {
+
+        setCargoEnabled(true);
+
+    }
+
 
     currentTool = tool;
 
