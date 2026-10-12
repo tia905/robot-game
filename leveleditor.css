@@ -988,3 +988,71 @@ body {
     background: #e0483e;
     color: #fff;
 }
+
+
+/* =========================================================
+   CARGO (optional)
+========================================================= */
+
+.cargo-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.cargo-toggle input {
+    width: 18px;
+    height: 18px;
+}
+
+.cargo-marker {
+    position: absolute;
+    inset: 8%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 15;
+}
+
+.cargo-marker-zone {
+    border: 2px dashed #e0483e;
+    border-radius: 10px;
+    background: rgba(224, 72, 62, 0.22);
+    color: rgba(224, 72, 62, 0.85);
+    font-size: 18px;
+}
+
+.cargo-marker-box img {
+    width: 90%;
+    height: 90%;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+}
+
+.box-color,
+.zone-color {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.box-color {
+    background: #c68642;
+    border: 1px solid #6b4416;
+}
+
+.zone-color {
+    background: rgba(224, 72, 62, 0.3);
+    border: 1px dashed #e0483e;
+}
+
+.cargo-hint {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #6b7a70;
+}

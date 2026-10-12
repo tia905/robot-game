@@ -1015,3 +1015,76 @@ body {
     box-shadow: 0 0 14px 2px rgba(255, 212, 59, 0.85);
     z-index: 8;
 }
+
+
+/* =========================================================
+   CARGO (AMBIL / LETAKKAN BEBAN)
+========================================================= */
+
+.block[data-command="pickup"],
+.block[data-command="putdown"] {
+    background: #d98a2b !important;
+}
+
+.block[data-command="pickup"]::before,
+.block[data-command="pickup"]::after,
+.block[data-command="putdown"]::before,
+.block[data-command="putdown"]::after {
+    background: #d98a2b !important;
+}
+
+.cargo-zone {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px dashed #e0483e;
+    border-radius: 10px;
+    background: rgba(224, 72, 62, 0.22);
+    color: rgba(224, 72, 62, 0.75);
+    font-size: 20px;
+    pointer-events: none;
+    z-index: 8;
+}
+
+.cargo-zone::after {
+    content: "▼";
+}
+
+.cargo-zone.filled {
+    border-style: solid;
+    border-color: #2fa84f;
+    background: rgba(47, 168, 79, 0.25);
+}
+
+.cargo-zone.filled::after {
+    content: "";
+}
+
+.cargo-box {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 9;
+}
+
+.cargo-box img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+}
+
+.cargo-box.pop img {
+    animation: cargoPopImg 0.35s ease;
+}
+
+@keyframes cargoPopImg {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+

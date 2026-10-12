@@ -127,6 +127,248 @@ let currentBuildingTargets = {
 
 
 /* =========================================================
+   CARGO (AMBIL / LETAKKAN BEBAN) - opsional per level
+========================================================= */
+
+let currentCargo = {
+    boxes: [],
+    zones: []
+};
+
+let currentCargoEnabled = false;
+
+const cargoEnabledInput =
+    document.getElementById("cargo-enabled");
+
+function isCargoAllowed() {
+
+    return Boolean(
+        lesson &&
+        lesson.type !== "coordinates"
+    );
+}
+
+function normalizeCargoData(level) {
+
+    if (
+        !level.cargo ||
+        typeof level.cargo !== "object"
+    ) {
+
+        level.cargo = {};
+
+    }
+
+    if (!Array.isArray(level.cargo.boxes)) {
+
+        level.cargo.boxes = [];
+
+    }
+
+    if (!Array.isArray(level.cargo.zones)) {
+
+        level.cargo.zones = [];
+
+    }
+
+    level.cargoEnabled =
+        Boolean(level.cargoEnabled);
+}
+
+function updateCargoToolsVisibility() {
+
+    const allowed =
+        isCargoAllowed();
+
+    const group =
+        document.getElementById("cargo-group");
+
+    if (group) {
+
+        group.style.display =
+            allowed ? "" : "none";
+
+    }
+
+    const show =
+        allowed && currentCargoEnabled;
+
+    document
+        .querySelectorAll(".cargo-tool")
+        .forEach(function(button) {
+
+            button.style.display =
+                show ? "inline-flex" : "none";
+
+        });
+
+    document
+        .querySelectorAll(".cargo-help")
+        .forEach(function(item) {
+
+            item.style.display =
+                show ? "flex" : "none";
+
+        });
+}
+
+function toggleCargoItem(kind, key) {
+
+    const other =
+        kind === "boxes" ? "zones" : "boxes";
+
+    const list =
+        currentCargo[kind];
+
+    const index =
+        list.indexOf(key);
+
+    if (index >= 0) {
+
+        list.splice(index, 1);
+
+        return;
+
+    }
+
+    list.push(key);
+
+    // satu sel hanya boleh punya kardus ATAU drop zone
+    removeFromArray(currentCargo[other], key);
+
+    // robot harus bisa berdiri di sana -> otomatis jadi PATH
+    removeFromArray(currentBlocked, key);
+
+    if (!currentPath.includes(key)) {
+
+        currentPath.push(key);
+
+    }
+}
+
+function renderCargoMarkers() {
+
+    if (
+        !currentCargoEnabled ||
+        !isCargoAllowed()
+    ) {
+
+        return;
+
+    }
+
+    [
+        ["zones", "zone"],
+        ["boxes", "box"]
+    ].forEach(function(pair) {
+
+        currentCargo[pair[0]].forEach(function(key) {
+
+            const parts =
+                key.split(",");
+
+            const cell =
+                mapEditor.querySelector(
+                    `.map-cell[data-x="${Number(parts[0])}"][data-y="${Number(parts[1])}"]`
+                );
+
+            if (!cell) {
+                return;
+            }
+
+            const marker =
+                document.createElement("div");
+
+            marker.className =
+                `cargo-marker cargo-marker-${pair[1]}`;
+
+            marker.title =
+                pair[1] === "box"
+                    ? "Cargo box"
+                    : "Drop zone";
+
+            if (pair[1] === "box") {
+
+                const image =
+                    document.createElement("img");
+
+                image.src =
+                    "assets/kardus.svg";
+
+                image.alt =
+                    "Cargo box";
+
+                image.draggable =
+                    false;
+
+                marker.appendChild(image);
+
+            } else {
+
+                marker.textContent =
+                    "▼";
+
+            }
+
+            cell.appendChild(marker);
+
+        });
+
+    });
+}
+
+if (cargoEnabledInput) {
+
+    cargoEnabledInput.addEventListener(
+        "change",
+        function() {
+
+            currentCargoEnabled =
+                cargoEnabledInput.checked;
+
+            // block AMBIL & LETAKKAN ikut dicentang / dilepas
+            availableBlocksList
+                .querySelectorAll('input[type="checkbox"]')
+                .forEach(function(checkbox) {
+
+                    if (
+                        checkbox.value === "pickup" ||
+                        checkbox.value === "putdown"
+                    ) {
+
+                        checkbox.checked =
+                            currentCargoEnabled;
+
+                    }
+
+                });
+
+            if (
+                !currentCargoEnabled &&
+                (
+                    currentTool === "cargoBox" ||
+                    currentTool === "cargoZone"
+                )
+            ) {
+
+                setActiveTool("path");
+
+            }
+
+            updateCargoToolsVisibility();
+
+            updateAllMapCells();
+
+            saveStatus.textContent =
+                "Unsaved changes";
+
+        }
+    );
+
+}
+
+
+/* =========================================================
    DOM
 ========================================================= */
 
@@ -256,7 +498,30 @@ function getDefaultBlocksForLesson() {
 
 function getBlockOptionsForLesson() {
 
-    return getDefaultBlocksForLesson();
+    const options =
+        getDefaultBlocksForLesson().slice();
+
+    if (
+        lesson &&
+        lesson.type !== "coordinates"
+    ) {
+
+        [
+            "pickup",
+            "putdown"
+        ].forEach(function(block) {
+
+            if (!options.includes(block)) {
+
+                options.push(block);
+
+            }
+
+        });
+
+    }
+
+    return options;
 }
 
 
@@ -686,6 +951,8 @@ function prepareLevels() {
 
             normalizeBuildingTargets(level);
 
+            normalizeCargoData(level);
+
             normalizeMaxBlocks(level);
 
 
@@ -926,6 +1193,24 @@ function loadCurrentLevel() {
     };
 
 
+    normalizeCargoData(level);
+
+    currentCargo = {
+        boxes: [...level.cargo.boxes],
+        zones: [...level.cargo.zones]
+    };
+
+    currentCargoEnabled =
+        Boolean(level.cargoEnabled) &&
+        isCargoAllowed();
+
+    if (cargoEnabledInput) {
+
+        cargoEnabledInput.checked =
+            currentCargoEnabled;
+
+    }
+
     setActiveTool("path");
 
 
@@ -936,6 +1221,8 @@ function loadCurrentLevel() {
     renderLevelList();
 
     updateBuildingToolsVisibility();
+
+    updateCargoToolsVisibility();
 
     updateMaximumBlocksVisibility();
 
@@ -1303,6 +1590,8 @@ function renderMap() {
 
     renderBuildingShadows();
 
+    renderCargoMarkers();
+
 }
 
 
@@ -1487,6 +1776,29 @@ function handleCellClick(
 
     const key =
         `${x},${y}`;
+
+
+    if (
+        currentTool === "cargoBox" ||
+        currentTool === "cargoZone"
+    ) {
+
+        toggleCargoItem(
+            currentTool === "cargoBox"
+                ? "boxes"
+                : "zones",
+            key
+        );
+
+        updateAllMapCells();
+
+        saveStatus.textContent =
+            "Unsaved changes";
+
+        return;
+
+    }
+
 
 
     if (
@@ -2076,6 +2388,8 @@ function updateAllMapCells() {
 
 
     renderBuildingShadows();
+
+    renderCargoMarkers();
 }
 
 
@@ -2461,6 +2775,15 @@ if (
 
     level.blocked =
         [...currentBlocked];
+
+    level.cargoEnabled =
+        currentCargoEnabled &&
+        isCargoAllowed();
+
+    level.cargo = {
+        boxes: [...currentCargo.boxes],
+        zones: [...currentCargo.zones]
+    };
 
 
     level.buildingTargets = {

@@ -217,6 +217,30 @@
 
                 </div>
 
+
+                <div
+                    class="help-item cargo-help"
+                    style="display: none;"
+                >
+
+                    <span class="help-color box-color"></span>
+
+                    Cargo box
+
+                </div>
+
+
+                <div
+                    class="help-item cargo-help"
+                    style="display: none;"
+                >
+
+                    <span class="help-color zone-color"></span>
+
+                    Drop zone
+
+                </div>
+
             </div>
 
         </section>
@@ -350,6 +374,21 @@
 </div>
 
 
+            <!-- CARGO (OPTIONAL) -->
+            <div class="setting-group" id="cargo-group">
+
+                <label class="cargo-toggle">
+                    <input type="checkbox" id="cargo-enabled">
+                    📦 Use cargo in this level
+                </label>
+
+                <p class="cargo-hint">
+                    Optional. Students use PICK UP and PUT DOWN to move the box to the red drop zone, then reach the goal. Turn off to hide cargo.
+                </p>
+
+            </div>
+
+
             <!-- TOOLS -->
             <div class="setting-group">
 
@@ -411,6 +450,23 @@
                         style="display: none;"
                     >
                         GARDEN
+                    </button>
+
+                    <!-- CARGO TOOLS (optional) -->
+                    <button
+                        class="tool-button cargo-tool"
+                        data-tool="cargoBox"
+                        style="display: none;"
+                    >
+                        📦 BOX
+                    </button>
+
+                    <button
+                        class="tool-button cargo-tool"
+                        data-tool="cargoZone"
+                        style="display: none;"
+                    >
+                        🟥 DROP ZONE
                     </button>
 
                 </div>
@@ -490,6 +546,10 @@
 
                     <li>
                         For Repetition, choose a building tool and click the target area.
+                    </li>
+
+                    <li>
+                        Optional: tick "Use cargo", then place a 📦 BOX and a 🟥 DROP ZONE.
                     </li>
 
                     <li>

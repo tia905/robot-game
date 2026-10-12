@@ -5,7 +5,7 @@ const isIndonesian =
     new URLSearchParams(window.location.search).get("student") === "1" &&
     localStorage.getItem("robotLang") === "id";
 
-const ID_TEXT = {"Level Complete!":"Level Selesai!","Great job! You reached the goal.":"Kerja bagus! Kamu sampai di tujuan.","Bonus Level Complete! ⭐":"Level Bonus Selesai! ⭐","Amazing! You cleared a bonus level.":"Keren! Kamu menyelesaikan level bonus.","Great job! Bonus levels are now open ⭐":"Kerja bagus! Level bonus sudah terbuka ⭐","NEXT LEVEL":"LEVEL BERIKUTNYA","DONE":"SELESAI","BONUS LEVEL ⭐":"LEVEL BONUS ⭐","Oops!":"Ups!","There is no path there.":"Tidak ada jalan di sana.","The robot bumped into something.":"Robot menabrak sesuatu.","Try Again!":"Coba Lagi!","The robot did not complete the path.":"Robot belum menyelesaikan jalurnya.","Too Many Blocks":"Terlalu Banyak Blok","MOVE FORWARD":"MAJU","TURN LEFT":"BELOK KIRI","TURN RIGHT":"BELOK KANAN","REPEAT [ 2 ] TIMES":"ULANGI [ 2 ] KALI","REPEAT [ ] TIMES":"ULANGI [ ] KALI","BUILD A HOUSE":"BANGUN RUMAH","BUILD A SCHOOL":"BANGUN SEKOLAH","BUILD A GARDEN":"BANGUN TAMAN","GO TO X [ ] Y [ ]":"PERGI KE X [ ] Y [ ]","PICK UP CARGO":"AMBIL BARANG","PUT DOWN CARGO":"LETAKKAN BARANG","IF / ELSE":"JIKA / MAKA","CARGO COLOR":"WARNA BARANG","REPEAT":"ULANGI","TIMES":"KALI","Drop blocks here":"Lepas blok di sini","Drag blocks here":"Seret blok ke sini"};
+const ID_TEXT = {"Level Complete!":"Level Selesai!","Great job! You reached the goal.":"Kerja bagus! Kamu sampai di tujuan.","Bonus Level Complete! ⭐":"Level Bonus Selesai! ⭐","Amazing! You cleared a bonus level.":"Keren! Kamu menyelesaikan level bonus.","Great job! Bonus levels are now open ⭐":"Kerja bagus! Level bonus sudah terbuka ⭐","NEXT LEVEL":"LEVEL BERIKUTNYA","DONE":"SELESAI","BONUS LEVEL ⭐":"LEVEL BONUS ⭐","Oops!":"Ups!","There is no path there.":"Tidak ada jalan di sana.","The robot bumped into something.":"Robot menabrak sesuatu.","Try Again!":"Coba Lagi!","The robot did not complete the path.":"Robot belum menyelesaikan jalurnya.","Too Many Blocks":"Terlalu Banyak Blok","MOVE FORWARD":"MAJU","TURN LEFT":"BELOK KIRI","TURN RIGHT":"BELOK KANAN","REPEAT [ 2 ] TIMES":"ULANGI [ 2 ] KALI","REPEAT [ ] TIMES":"ULANGI [ ] KALI","BUILD A HOUSE":"BANGUN RUMAH","BUILD A SCHOOL":"BANGUN SEKOLAH","BUILD A GARDEN":"BANGUN TAMAN","GO TO X [ ] Y [ ]":"PERGI KE X [ ] Y [ ]","PICK UP CARGO":"AMBIL BEBAN","PUT DOWN CARGO":"LETAKKAN BEBAN","IF / ELSE":"JIKA / MAKA","CARGO COLOR":"WARNA BARANG","REPEAT":"ULANGI","TIMES":"KALI","Cargo not delivered":"Beban belum diantar","Pick up the box, then put it down on the red square before you finish.":"Ambil kardus, lalu letakkan di kotak merah sebelum kamu selesai.","Drop blocks here":"Lepas blok di sini","Drag blocks here":"Seret blok ke sini"};
 
 function tt(text) {
     return isIndonesian && ID_TEXT[text] ? ID_TEXT[text] : text;
@@ -150,6 +150,20 @@ const robotImages = [
     "assets/kiri.png",
     "assets/belakang.png"
 ];
+
+
+/* robot saat membawa kardus (urutan sama: kanan, bawah, kiri, atas) */
+const robotBoxImages = [
+    "assets/kanan-box.png",
+    "assets/depan-box.png",
+    "assets/kiri-box.png",
+    "assets/belakang-box.png"
+];
+
+robotBoxImages.forEach(function (src) {
+    const preload = new Image();
+    preload.src = src;
+});
 
 
 /* =========================================================
@@ -425,6 +439,18 @@ function normalizeBuildingTargets(
    NORMALIZE EDITOR LEVELS
 ========================================================= */
 
+/* beban / kardus (opsional per level) */
+function normalizeCargo(cargo) {
+    const source =
+        cargo && typeof cargo === "object"
+            ? cargo
+            : {};
+    return {
+        boxes: normalizeCells(source.boxes),
+        zones: normalizeCells(source.zones)
+    };
+}
+
 function normalizeEditorLevels() {
 
     if (
@@ -654,7 +680,11 @@ function normalizeEditorLevels() {
                     buildingTargets:
                         normalizeBuildingTargets(
                             editorLevel.buildingTargets
-                        )
+                        ),
+                    cargoEnabled:
+                        Boolean(editorLevel.cargoEnabled),
+                    cargo:
+                        normalizeCargo(editorLevel.cargo)
 
                 };
 
@@ -733,6 +763,7 @@ let hasCollided = false;
 
 let draggedProgramBlock = null;
 let dragDropHandled = false;
+let cargoCarrying = false;
 
 /* sisipkan node di posisi sesuai kursor (atas/bawah blok yg sudah ada) */
 function placeAt(container, node, clientY) {
@@ -1404,6 +1435,7 @@ function createMap() {
     renderBuildingTargets(
         level
     );
+    renderCargo(level);
 
 }
 
@@ -1851,6 +1883,150 @@ async function buildBuilding(
 
 
 /* =========================================================
+   CARGO (AMBIL / LETAKKAN BEBAN) - opsional per level
+   Level memakai cargo kalau level.cargoEnabled = true.
+   - PICK UP : robot berdiri di atas kardus -> kardus dibawa
+   - PUT DOWN: kardus diletakkan di sel robot. Kalau di kotak
+               merah (drop zone) -> kotak terisi.
+   - Level selesai kalau robot di goal DAN semua drop zone terisi
+     (kalau tidak ada drop zone, cargo hanya latihan).
+========================================================= */
+const CARGO_IMAGE = "assets/kardus.svg";
+
+function cargoLevelOn(level) {
+    return Boolean(
+        level &&
+        level.cargoEnabled &&
+        level.cargo &&
+        !isCoordinateLesson
+    );
+}
+
+function cargoBoxAt(x, y) {
+    return Array.from(
+        map.querySelectorAll(".cargo-box")
+    ).find(function (box) {
+        return Number(box.dataset.x) === Number(x) &&
+            Number(box.dataset.y) === Number(y);
+    }) || null;
+}
+
+function makeCargoBox(x, y, pop) {
+    const box = document.createElement("div");
+    box.className = "cargo-box" + (pop ? " pop" : "");
+    box.dataset.x = x;
+    box.dataset.y = y;
+    box.style.left = (x * gridSize) + "px";
+    box.style.top = (y * gridSize) + "px";
+    box.style.width = gridSize + "px";
+    box.style.height = gridSize + "px";
+    const img = document.createElement("img");
+    img.src = CARGO_IMAGE;
+    img.alt = "Cargo";
+    img.draggable = false;
+    box.appendChild(img);
+    return box;
+}
+
+function makeCargoZone(x, y) {
+    const zone = document.createElement("div");
+    zone.className = "cargo-zone";
+    zone.dataset.x = x;
+    zone.dataset.y = y;
+    zone.style.left = (x * gridSize + 4) + "px";
+    zone.style.top = (y * gridSize + 4) + "px";
+    zone.style.width = (gridSize - 8) + "px";
+    zone.style.height = (gridSize - 8) + "px";
+    return zone;
+}
+
+function refreshCargoZones() {
+    map.querySelectorAll(".cargo-zone").forEach(function (zone) {
+        zone.classList.toggle(
+            "filled",
+            Boolean(cargoBoxAt(zone.dataset.x, zone.dataset.y))
+        );
+    });
+}
+
+function renderCargo(level) {
+    if (!map) {
+        return;
+    }
+    map.querySelectorAll(".cargo-zone, .cargo-box").forEach(function (el) {
+        el.remove();
+    });
+    cargoCarrying = false;
+    if (!cargoLevelOn(level)) {
+        return;
+    }
+    function inside(c) {
+        return c.x >= 0 && c.y >= 0 && c.x < mapColumns && c.y < mapRows;
+    }
+    level.cargo.zones.filter(inside).forEach(function (c) {
+        map.appendChild(makeCargoZone(c.x, c.y));
+    });
+    level.cargo.boxes.filter(inside).forEach(function (c) {
+        map.appendChild(makeCargoBox(c.x, c.y, false));
+    });
+    refreshCargoZones();
+}
+
+async function pickupCargo() {
+    const level = getCurrentLevel();
+    if (!cargoLevelOn(level) || cargoCarrying) {
+        return true;
+    }
+    const box = cargoBoxAt(robotX, robotY);
+    if (!box) {
+        return true;
+    }
+    box.remove();
+    cargoCarrying = true;
+    refreshCargoZones();
+    updateRobot();
+    await wait(450);
+    return true;
+}
+
+async function putdownCargo() {
+    const level = getCurrentLevel();
+    if (!cargoLevelOn(level) || !cargoCarrying) {
+        return true;
+    }
+    if (cargoBoxAt(robotX, robotY)) {
+        return true;
+    }
+    cargoCarrying = false;
+    updateRobot();
+    map.appendChild(makeCargoBox(robotX, robotY, true));
+    refreshCargoZones();
+    await wait(450);
+    return true;
+}
+
+function isCargoDone(level) {
+    if (!cargoLevelOn(level) || level.cargo.zones.length === 0) {
+        return true;
+    }
+    return Array.from(map.querySelectorAll(".cargo-zone")).every(function (zone) {
+        return Boolean(cargoBoxAt(zone.dataset.x, zone.dataset.y));
+    });
+}
+
+function showCargoFailMessage() {
+    messageTitle.textContent =
+        tt("Cargo not delivered");
+    messageText.textContent =
+        tt("Pick up the box, then put it down on the red square before you finish.");
+    nextLevelButton.style.display =
+        "none";
+    gameMessage.classList.remove(
+        "hidden"
+    );
+}
+
+/* =========================================================
    UPDATE ROBOT
 ========================================================= */
 
@@ -1983,15 +2159,17 @@ function updateRobot() {
         ) + "px";
 
     robot.src =
-        robotImages[
-            direction
-        ];
-
+        (
+            cargoCarrying
+                ? robotBoxImages
+                : robotImages
+        )[direction];
+    /* gambar bawa-kardus berkanvas lebih lebar, jadi dibesarkan sedikit
+       supaya tinggi robot terlihat sama dengan robot biasa */
     robot.style.width =
-        "34px";
-
+        (cargoCarrying ? 38 : 34) + "px";
     robot.style.height =
-        "34px";
+        (cargoCarrying ? 38 : 34) + "px";
 
     robot.style.objectFit =
         "contain";
@@ -2007,6 +2185,7 @@ function updateRobot() {
 
     robot.style.transform =
         "translate(-50%, -50%)";
+
 
 }
 
@@ -2833,6 +3012,7 @@ function resetRobot() {
         false;
 
 
+    renderCargo(level);
     updateRobot();
 
     updateGoal();
@@ -4623,6 +4803,15 @@ async function runCommand(
        OTHER BLOCKS
     ===================================================== */
 
+    if (command === "pickup") {
+        return await pickupCargo();
+    }
+
+    if (command === "putdown") {
+        return await putdownCargo();
+    }
+
+
     if (
         command === "pickup" ||
         command === "putdown" ||
@@ -4922,9 +5111,12 @@ runButton.addEventListener(
         }
 
         else if (isAtGoal()) {
-
-            completeLevel();
-
+            if (isCargoDone(getCurrentLevel())) {
+                completeLevel();
+            }
+            else {
+                showCargoFailMessage();
+            }
         }
 
         else {
