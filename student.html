@@ -437,9 +437,8 @@ function startQuiz(ci) {
     view = null;
     shell(`<div class="steps"><button class="back" id="bk">←</button><span class="st">⭐ ${stars()} / ${Q.length}</span></div>
       <div class="card"><h2>${esc(c.title)} ✅</h2>${Q.map((q, k) => { const r = PR.res[k] || {}; return `<div class="rv ${r.ok === true ? "g" : r.ok === false ? "b" : ""}"><b>${k + 1}.</b> ${T(q.q)}<i>${esc(r.text)} ${r.ok === true ? "✅" : r.ok === false ? "❌" : "📝"}</i></div>`; }).join("")}</div>
-      <button class="go" id="rt">${U("retry")}</button>`, true);
+      `, true);
     document.getElementById("bk").onclick = showHub;
-    document.getElementById("rt").onclick = () => { if (!confirm(msg("sure"))) return; PR = { sig, res: {}, tries: {} }; persist(); startQuiz(ci); };
   };
   if (qi < 0) { review(); return; }
   const draw = () => {
