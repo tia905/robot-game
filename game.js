@@ -5093,6 +5093,14 @@ closeMessageButton.addEventListener(
 
         hideMessage();
 
+        /* robot kembali ke awal => peta juga kembali ke soal
+           (bangunan hasil RUN hilang, bayangan muncul lagi) */
+        if (!isRunning) {
+
+            createMap();
+
+        }
+
         resetRobot();
 
     }
