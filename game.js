@@ -64,7 +64,41 @@ const levelsContainer =
 
 const DEFAULT_GRID_SIZE = 8;
 
-let gridSize = 50;
+const BASE_CELL_SIZE = 50;
+
+/* batas ukuran sel (px) dan seberapa besar peta boleh memenuhi papan */
+const MIN_CELL_SIZE = 24;
+const MAX_CELL_SIZE = 110;
+const MAP_FILL_RATIO = 0.86;
+
+let gridSize = BASE_CELL_SIZE;
+
+/* skala relatif terhadap ukuran sel dasar (dipakai robot, bintang, dll) */
+function cellScale() {
+    return gridSize / BASE_CELL_SIZE;
+}
+
+/* hitung ukuran sel supaya peta memenuhi papan permainan:
+   peta kecil jadi besar, peta dengan banyak sel otomatis mengecil */
+function fitGridSizeToBoard() {
+
+    const board = document.getElementById("game-board");
+
+    if (!board || !board.clientWidth || !board.clientHeight) {
+        return gridSize;
+    }
+
+    const available =
+        Math.min(board.clientWidth, board.clientHeight) * MAP_FILL_RATIO;
+
+    const cells = Math.max(mapColumns, mapRows, 1);
+
+    const size = Math.floor(available / cells);
+
+    gridSize = Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, size));
+
+    return gridSize;
+}
 
 let mapColumns =
     DEFAULT_GRID_SIZE;
@@ -799,6 +833,13 @@ function setDragged(block, event) {
     draggedStack.forEach(function (n) { n.classList.add("dragging"); });
 }
 
+/* true bila yang sedang di-drag mengandung blok repeat */
+function dragHasRepeat() {
+    return !!draggedProgramBlock && draggedStack.some(function (n) {
+        return n.classList.contains("repeat-block");
+    });
+}
+
 function insertStack(container, nodes, clientY) {
     const kids = blockSiblings(container).filter(function (n) { return nodes.indexOf(n) < 0; });
     let before = null;
@@ -1053,6 +1094,8 @@ function updateGridSizeFromLevel() {
 
         mapRows = 15;
 
+        gridSize = BASE_CELL_SIZE;
+
         return;
 
     }
@@ -1087,6 +1130,9 @@ function updateGridSizeFromLevel() {
             Math.floor(size);
 
     }
+
+
+    fitGridSizeToBoard();
 
 }
 
@@ -1580,7 +1626,7 @@ function renderBuildingTargets(
                         "10px";
 
                     shadow.style.fontSize =
-                        "31px";
+                        Math.round(31 * cellScale()) + "px";
 
                     shadow.style.fontWeight =
                         "600";
@@ -2167,9 +2213,9 @@ function updateRobot() {
     /* gambar bawa-kardus berkanvas lebih lebar, jadi dibesarkan sedikit
        supaya tinggi robot terlihat sama dengan robot biasa */
     robot.style.width =
-        (cargoCarrying ? 38 : 34) + "px";
+        Math.round((cargoCarrying ? 38 : 34) * cellScale()) + "px";
     robot.style.height =
-        (cargoCarrying ? 38 : 34) + "px";
+        Math.round((cargoCarrying ? 38 : 34) * cellScale()) + "px";
 
     robot.style.objectFit =
         "contain";
@@ -2358,7 +2404,7 @@ function updateGoal() {
         ) + "px";
 
     goal.style.fontSize =
-        "30px";
+        Math.round(30 * cellScale()) + "px";
 
     goal.style.lineHeight =
         "1";
@@ -3824,7 +3870,8 @@ program.addEventListener(
         if (
             event.target.closest(
                 ".repeat-block"
-            )
+            ) &&
+            !dragHasRepeat()
         ) {
 
             return;
@@ -3855,7 +3902,8 @@ program.addEventListener(
         if (
             event.target.closest(
                 ".repeat-block"
-            )
+            ) &&
+            !dragHasRepeat()
         ) {
 
             return;
@@ -3881,17 +3929,47 @@ program.addEventListener(
                 parkedTarget &&
                 stack.some(function (n) { return parkedTarget.contains(n); });
 
-            let stackRight = 0;
+            const startEl =
+                program.querySelector(":scope > .start-block");
+
+            const colLeft =
+                startEl
+                    ? startEl.getBoundingClientRect().left
+                    : program.getBoundingClientRect().left;
+
+            let colBottom =
+                startEl
+                    ? startEl.getBoundingClientRect().bottom
+                    : program.getBoundingClientRect().top;
 
             Array.from(
-                program.querySelectorAll(":scope > .start-block, :scope > .block, :scope > .repeat-block")
+                program.querySelectorAll(":scope > .block, :scope > .repeat-block")
             ).forEach(function (el) {
                 if (stack.indexOf(el) < 0) {
-                    stackRight = Math.max(stackRight, el.getBoundingClientRect().right);
+                    colBottom = Math.max(colBottom, el.getBoundingClientRect().bottom);
                 }
             });
 
-            if (ownParked || (!parkedTarget && event.clientX > stackRight + 24)) {
+            /* pakai sisi kiri & atas blok yang dilepas (bukan posisi kursor),
+               supaya blok lebar seperti repeat tetap menempel walau dipegang di sisi kanan */
+            const dropLeft = event.clientX - dragGrab.x;
+            const dropTop = event.clientY - dragGrab.y;
+
+            const nearColumn = Math.abs(dropLeft - colLeft) <= 100;
+            const nearBottom = dropTop <= colBottom + 60;
+
+            if (ownParked) {
+
+                if (nearColumn && nearBottom) {
+                    insertStack(program, stack, event.clientY);
+                }
+                else {
+                    parkStack(stack, event);
+                }
+
+            }
+
+            else if (!parkedTarget && !nearColumn) {
 
                 parkStack(stack, event);
 
@@ -4163,6 +4241,12 @@ function createProgramBlock(
             "dragover",
             function(event) {
 
+                /* tumpukan berisi repeat: biarkan program yang menangani */
+                if (dragHasRepeat()) {
+                    return;
+                }
+
+
                 event.preventDefault();
 
                 event.stopPropagation();
@@ -4192,6 +4276,12 @@ function createProgramBlock(
         repeatBlock.addEventListener(
             "drop",
             function(event) {
+
+                /* tumpukan berisi repeat: biarkan program yang menangani */
+                if (dragHasRepeat()) {
+                    return;
+                }
+
 
                 event.preventDefault();
 
@@ -4654,9 +4744,52 @@ function updateBlockCounter() {
         getProgramBlockCount();
 
 
-    blockCounter.textContent =
-        "blok yang digunakan: " +
-        count;
+    const level =
+        getCurrentLevel();
+
+    const hasLimit =
+        !!level &&
+        level.maxBlocks !== null &&
+        level.maxBlocks !== undefined &&
+        level.maxBlocks !== "" &&
+        !isNaN(Number(level.maxBlocks));
+
+    blockCounter.classList.remove(
+        "limit-ok",
+        "limit-full",
+        "limit-over"
+    );
+
+    if (hasLimit) {
+
+        const max = Number(level.maxBlocks);
+
+        blockCounter.textContent =
+            "blok yang digunakan: " +
+            count + "/" + max;
+
+        blockCounter.classList.add(
+            count > max
+                ? "limit-over"
+                : count === max
+                    ? "limit-full"
+                    : "limit-ok"
+        );
+
+        blockCounter.title =
+            count > max
+                ? "Blok melebihi batas! Kurangi blok."
+                : "Level ini dibatasi maksimal " + max + " blok.";
+
+    } else {
+
+        blockCounter.textContent =
+            "blok yang digunakan: " +
+            count;
+
+        blockCounter.removeAttribute("title");
+
+    }
 
 }
 
@@ -5218,6 +5351,8 @@ window.addEventListener(
         requestAnimationFrame(
             function() {
 
+                refitMapIfNeeded();
+
                 updateRobot();
 
                 updateGoal();
@@ -5229,6 +5364,28 @@ window.addEventListener(
 );
 
 
+/* ukuran papan berubah (resize / layout baru muncul): hitung ulang ukuran sel.
+   Peta hanya digambar ulang bila ukuran sel berubah dan program tidak sedang berjalan. */
+function refitMapIfNeeded() {
+
+    if (isCoordinateLesson || isRunning) {
+        return;
+    }
+
+    const before = gridSize;
+
+    fitGridSizeToBoard();
+
+    if (gridSize === before) {
+        return;
+    }
+
+    createMap();
+
+    resetRobot();
+
+}
+
 /* =========================================================
    START GAME
 ========================================================= */
@@ -5239,6 +5396,8 @@ createMap();
 
 requestAnimationFrame(
     function() {
+
+        refitMapIfNeeded();
 
         resetRobot();
 

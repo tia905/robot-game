@@ -256,6 +256,36 @@ body {
     color: #999;
 }
 
+.block-counter.limit-ok,
+.block-counter.limit-full,
+.block-counter.limit-over {
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+.block-counter.limit-ok {
+    color: #2e7d32;
+    background: #e8f5e9;
+}
+
+.block-counter.limit-full {
+    color: #8a5a00;
+    background: #fff3cd;
+}
+
+.block-counter.limit-over {
+    color: #fff;
+    background: #d32f2f;
+    animation: limitShake 0.4s;
+}
+
+@keyframes limitShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
 #program {
     position: relative;
     min-height: calc(100% - 46px);
