@@ -1118,3 +1118,22 @@ body {
     to   { transform: scale(1);   opacity: 1; }
 }
 
+/* =========================================================
+   REPEAT DI DALAM REPEAT (nested): warna sedikit lebih gelap
+   supaya batas antar tingkat terlihat jelas
+========================================================= */
+.repeat-body > .repeat-block {
+    margin: 2px 0;
+}
+
+.repeat-body > .repeat-block > .repeat-header,
+.repeat-body > .repeat-block::before,
+.repeat-body > .repeat-block::after {
+    background: #4e8f44;
+}
+
+.repeat-body .repeat-body > .repeat-block > .repeat-header,
+.repeat-body .repeat-body > .repeat-block::before,
+.repeat-body .repeat-body > .repeat-block::after {
+    background: #3f7a37;
+}

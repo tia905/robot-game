@@ -834,6 +834,14 @@ function setDragged(block, event) {
 }
 
 /* true bila yang sedang di-drag mengandung blok repeat */
+/* true bila node ini adalah bagian dari tumpukan yang sedang di-drag
+   (dirinya sendiri atau ada di dalam blok yang di-drag) */
+function dragIncludes(node) {
+    return !!draggedProgramBlock && draggedStack.some(function (n) {
+        return n === node || n.contains(node);
+    });
+}
+
 function dragHasRepeat() {
     return !!draggedProgramBlock && draggedStack.some(function (n) {
         return n.classList.contains("repeat-block");
@@ -3308,13 +3316,13 @@ function updateLevelButtons() {
 function serializeNodes(nodes) {
     return nodes.map(function (n) {
         if (n.classList.contains("repeat-block")) {
-            const inp = n.querySelector(".repeat-number");
+            const inp = n.querySelector(":scope > .repeat-header .repeat-number");
+            const body = n.querySelector(":scope > .repeat-body");
             return {
                 type: "repeat",
                 times: inp ? Number(inp.value) || 2 : 2,
-                children: Array.from(n.querySelectorAll(":scope > .repeat-body > .block")).map(function (c) {
-                    return { command: c.dataset.command };
-                })
+                /* rekursif: repeat boleh berisi repeat lain */
+                children: body ? serializeNodes(blockSiblings(body)) : []
             };
         }
         return { type: "block", command: n.dataset.command };
@@ -3326,10 +3334,10 @@ function buildNodes(container, items) {
         if (it.type === "repeat") {
             const rb = createProgramBlock("repeat", container);
             if (!rb) return;
-            const inp = rb.querySelector(".repeat-number");
+            const inp = rb.querySelector(":scope > .repeat-header .repeat-number");
             if (inp) inp.value = it.times || 2;
-            const body = rb.querySelector(".repeat-body");
-            (it.children || []).forEach(function (c) { createProgramBlock(c.command, body); });
+            const body = rb.querySelector(":scope > .repeat-body");
+            buildNodes(body, it.children);
             updateRepeatPlaceholder();
         } else if (it.command) {
             createProgramBlock(it.command, container);
@@ -3351,107 +3359,7 @@ function restoreParked() {
 
 function saveCurrentProgram() {
 
-    const savedBlocks = [];
-
-
-    const mainBlocks =
-        program.querySelectorAll(
-            ":scope > .block, :scope > .repeat-block"
-        );
-
-
-    mainBlocks.forEach(
-        function(block) {
-
-            if (
-                block.classList.contains(
-                    "block"
-                )
-            ) {
-
-                savedBlocks.push({
-
-                    type:
-                        "block",
-
-                    command:
-                        block.dataset.command
-
-                });
-
-
-                return;
-
-            }
-
-
-            if (
-                block.classList.contains(
-                    "repeat-block"
-                )
-            ) {
-
-                const input =
-                    block.querySelector(
-                        ".repeat-number"
-                    );
-
-
-                const repeatBody =
-                    block.querySelector(
-                        ".repeat-body"
-                    );
-
-
-                const nestedBlocks = [];
-
-
-                if (repeatBody) {
-
-                    repeatBody
-                        .querySelectorAll(
-                            ":scope > .block"
-                        )
-                        .forEach(
-                            function(
-                                nestedBlock
-                            ) {
-
-                                nestedBlocks.push({
-
-                                    command:
-                                        nestedBlock.dataset.command
-
-                                });
-
-                            }
-                        );
-
-                }
-
-
-                savedBlocks.push({
-
-                    type:
-                        "repeat",
-
-                    times:
-                        input
-                            ? Number(
-                                input.value
-                            )
-                            : 2,
-
-                    children:
-                        nestedBlocks
-
-                });
-
-            }
-
-        }
-    );
-
+    const savedBlocks = serializeNodes(blockSiblings(program));
 
     savedPrograms[
         currentLevel
@@ -3497,108 +3405,7 @@ function loadSavedProgram() {
     }
 
 
-    savedBlocks.forEach(
-        function(savedBlock) {
-
-            if (
-                savedBlock.type ===
-                "block"
-            ) {
-
-                createProgramBlock(
-                    savedBlock.command,
-                    program
-                );
-
-                return;
-
-            }
-
-
-            if (
-                savedBlock.type ===
-                "repeat"
-            ) {
-
-                createProgramBlock(
-                    "repeat",
-                    program
-                );
-
-
-                const repeatBlocks =
-                    program.querySelectorAll(
-                        ":scope > .repeat-block"
-                    );
-
-
-                const repeatBlock =
-                    repeatBlocks[
-                        repeatBlocks.length - 1
-                    ];
-
-
-                if (!repeatBlock) {
-
-                    return;
-
-                }
-
-
-                const input =
-                    repeatBlock.querySelector(
-                        ".repeat-number"
-                    );
-
-
-                if (input) {
-
-                    input.value =
-                        savedBlock.times || 2;
-
-                }
-
-
-                const repeatBody =
-                    repeatBlock.querySelector(
-                        ".repeat-body"
-                    );
-
-
-                if (!repeatBody) {
-
-                    return;
-
-                }
-
-
-                if (
-                    Array.isArray(
-                        savedBlock.children
-                    )
-                ) {
-
-                    savedBlock.children.forEach(
-                        function(child) {
-
-                            createProgramBlock(
-                                child.command,
-                                repeatBody
-                            );
-
-                        }
-                    );
-
-                }
-
-
-                updateRepeatPlaceholder();
-
-            }
-
-        }
-    );
-
+    buildNodes(program, savedBlocks);
 
     updateBlockCounter();
 
@@ -4241,28 +4048,15 @@ function createProgramBlock(
             "dragover",
             function(event) {
 
-                /* tumpukan berisi repeat: biarkan program yang menangani */
-                if (dragHasRepeat()) {
+                /* repeat yang sedang di-drag (atau isinya): jangan tangani,
+                   biarkan diteruskan ke repeat induk / area program */
+                if (dragIncludes(repeatBlock)) {
                     return;
                 }
-
 
                 event.preventDefault();
 
                 event.stopPropagation();
-
-
-                if (
-                    draggedStack.indexOf(repeatBlock) >= 0
-                ) {
-
-                    event.dataTransfer.dropEffect =
-                        "none";
-
-                    return;
-
-                }
-
 
                 event.dataTransfer.dropEffect =
                     draggedProgramBlock
@@ -4272,50 +4066,25 @@ function createProgramBlock(
             }
         );
 
-
         repeatBlock.addEventListener(
             "drop",
             function(event) {
 
-                /* tumpukan berisi repeat: biarkan program yang menangani */
-                if (dragHasRepeat()) {
+                if (dragIncludes(repeatBlock)) {
                     return;
                 }
-
 
                 event.preventDefault();
 
                 event.stopPropagation();
 
-
-                if (
-                    draggedStack.indexOf(repeatBlock) >= 0
-                ) {
-
-                    return;
-
-                }
-
-
-                if (
-                    draggedProgramBlock
-                ) {
-
-                    if (
-                        draggedStack.some(function (n) { return n.classList.contains("repeat-block"); })
-                    ) {
-
-                        return;
-
-                    }
-
+                if (draggedProgramBlock) {
 
                     dragDropHandled = true;
 
                     insertStack(repeatBody, draggedStack, event.clientY);
 
                     finishProgramDrag();
-
 
                     updateRepeatPlaceholder();
 
@@ -4325,29 +4094,14 @@ function createProgramBlock(
 
                 }
 
-
                 const nestedCommand =
                     event.dataTransfer.getData(
                         "command"
                     );
 
-
                 if (!nestedCommand) {
-
                     return;
-
                 }
-
-
-                if (
-                    nestedCommand ===
-                    "repeat"
-                ) {
-
-                    return;
-
-                }
-
 
                 const madeNested =
                     createProgramBlock(
@@ -4356,11 +4110,8 @@ function createProgramBlock(
                     );
 
                 if (madeNested) {
-
                     placeAt(repeatBody, madeNested, event.clientY);
-
                 }
-
 
                 updateRepeatPlaceholder();
 
@@ -4368,7 +4119,6 @@ function createProgramBlock(
 
             }
         );
-
 
         container.appendChild(
             repeatBlock
@@ -4458,7 +4208,7 @@ function updateRepeatPlaceholder() {
 
             const blocks =
                 body.querySelectorAll(
-                    ":scope > .block"
+                    ":scope > .block, :scope > .repeat-block"
                 );
 
 
@@ -4982,10 +4732,16 @@ function setActiveBlock(el, parent) {
     if (el) {
         el.classList.add("block-active");
         var p = el.parentElement && el.parentElement.closest(".repeat-block");
-        if (p) { p.classList.add("block-parent-active"); }
+        while (p) {
+            p.classList.add("block-parent-active");
+            p = p.parentElement && p.parentElement.closest(".repeat-block");
+        }
         try { el.scrollIntoView({ block: "nearest" }); } catch (e) {}
     }
-    if (parent) { parent.classList.add("block-parent-active"); }
+    while (parent) {
+        parent.classList.add("block-parent-active");
+        parent = parent.parentElement && parent.parentElement.closest(".repeat-block");
+    }
 }
 function setCodeRunning(on) {
     document.body.classList.toggle("code-running", on);
@@ -5058,7 +4814,7 @@ async function runProgramBlock(
         const nestedBlocks =
             Array.from(
                 block.querySelectorAll(
-                    ":scope > .repeat-body > .block"
+                    ":scope > .repeat-body > .block, :scope > .repeat-body > .repeat-block"
                 )
             );
 
@@ -5081,8 +4837,8 @@ async function runProgramBlock(
                 }
 
 
-                setActiveBlock(nestedBlock);
-                const success = await runCommand(nestedBlock.dataset.command);
+                /* rekursif: anak bisa blok biasa atau repeat lain */
+                const success = await runProgramBlock(nestedBlock);
 
 
                 if (!success) {
