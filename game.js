@@ -5,7 +5,7 @@ const isIndonesian =
     new URLSearchParams(window.location.search).get("student") === "1" &&
     localStorage.getItem("robotLang") === "id";
 
-const ID_TEXT = {"Level Complete!":"Level Selesai!","Great job! You reached the goal.":"Kerja bagus! Kamu sampai di tujuan.","Bonus Level Complete! ⭐":"Level Bonus Selesai! ⭐","Amazing! You cleared a bonus level.":"Keren! Kamu menyelesaikan level bonus.","Great job! Bonus levels are now open ⭐":"Kerja bagus! Level bonus sudah terbuka ⭐","NEXT LEVEL":"LEVEL BERIKUTNYA","DONE":"SELESAI","BONUS LEVEL ⭐":"LEVEL BONUS ⭐","Oops!":"Ups!","There is no path there.":"Tidak ada jalan di sana.","The robot bumped into something.":"Robot menabrak sesuatu.","Try Again!":"Coba Lagi!","The robot did not complete the path.":"Robot belum menyelesaikan jalurnya.","Too Many Blocks":"Terlalu Banyak Blok","MOVE FORWARD":"MAJU","TURN LEFT":"BELOK KIRI","TURN RIGHT":"BELOK KANAN","REPEAT [ 2 ] TIMES":"ULANGI [ 2 ] KALI","REPEAT [ ] TIMES":"ULANGI [ ] KALI","BUILD A HOUSE":"BANGUN RUMAH","BUILD A SCHOOL":"BANGUN SEKOLAH","BUILD A GARDEN":"BANGUN TAMAN","GO TO X [ ] Y [ ]":"PERGI KE X [ ] Y [ ]","PICK UP CARGO":"AMBIL BEBAN","PUT DOWN CARGO":"LETAKKAN BEBAN","IF / ELSE":"JIKA / MAKA","CARGO COLOR":"WARNA BARANG","REPEAT":"ULANGI","TIMES":"KALI","Cargo not delivered":"Beban belum diantar","Pick up the box, then put it down on the red square before you finish.":"Ambil kardus, lalu letakkan di kotak merah sebelum kamu selesai.","Drop blocks here":"Lepas blok di sini","Drag blocks here":"Seret blok ke sini"};
+const ID_TEXT = {"Level Complete!":"Level Selesai!","Great job! You reached the goal.":"Kerja bagus! Kamu sampai di tujuan.","Bonus Level Complete! ⭐":"Level Bonus Selesai! ⭐","Amazing! You cleared a bonus level.":"Keren! Kamu menyelesaikan level bonus.","Great job! Bonus levels are now open ⭐":"Kerja bagus! Level bonus sudah terbuka ⭐","NEXT LEVEL":"LEVEL BERIKUTNYA","DONE":"SELESAI","BONUS LEVEL ⭐":"LEVEL BONUS ⭐","Oops!":"Ups!","There is no path there.":"Tidak ada jalan di sana.","The robot bumped into something.":"Robot menabrak sesuatu.","Try Again!":"Coba Lagi!","The robot did not complete the path.":"Robot belum menyelesaikan jalurnya.","Too Many Blocks":"Terlalu Banyak Blok","MOVE FORWARD":"MAJU","TURN LEFT":"BELOK KIRI","TURN RIGHT":"BELOK KANAN","REPEAT [ 2 ] TIMES":"ULANGI [ 2 ] KALI","REPEAT [ ] TIMES":"ULANGI [ ] KALI","BUILD A HOUSE":"BANGUN RUMAH","BUILD A SCHOOL":"BANGUN SEKOLAH","BUILD A GARDEN":"BANGUN TAMAN","GO TO X [ ] Y [ ]":"PERGI KE X [ ] Y [ ]","PICK UP CARGO":"AMBIL BEBAN","PUT DOWN CARGO":"LETAKKAN BEBAN","IF / ELSE":"JIKA / MAKA","CARGO COLOR":"WARNA BARANG","REPEAT":"ULANGI","TIMES":"KALI","Cargo not delivered":"Beban belum diantar","Wrong building":"Bangunan Salah","Some buildings are not the right type. Check which building each shadow needs.":"Ada bangunan yang jenisnya salah. Perhatikan bangunan apa yang dibutuhkan tiap bayangan.","Not finished building":"Belum Selesai Membangun","Build on every shadow before you finish.":"Bangun di setiap bayangan sebelum kamu selesai.","Pick up the box, then put it down on the red square before you finish.":"Ambil kardus, lalu letakkan di kotak merah sebelum kamu selesai.","Drop blocks here":"Lepas blok di sini","Drag blocks here":"Seret blok ke sini"};
 
 function tt(text) {
     return isIndonesian && ID_TEXT[text] ? ID_TEXT[text] : text;
@@ -1763,9 +1763,14 @@ async function buildBuilding(
     }
 
 
+    /*
+        Bangun di target mana pun yang ditempati robot,
+        walau jenisnya beda dengan blok yang dipakai.
+        Benar/salahnya dinilai di akhir (isBuildingsDone).
+    */
     const targets =
         document.querySelectorAll(
-            `.building-target-${buildingType}`
+            ".building-target"
         );
 
 
@@ -1904,6 +1909,9 @@ async function buildBuilding(
 
     target.dataset.built =
         "true";
+
+    target.dataset.builtType =
+        buildingType;
 
 
     target.appendChild(
@@ -2066,6 +2074,28 @@ function isCargoDone(level) {
     return Array.from(map.querySelectorAll(".cargo-zone")).every(function (zone) {
         return Boolean(cargoBoxAt(zone.dataset.x, zone.dataset.y));
     });
+}
+
+function buildingStatus() {
+    const targets = Array.from(map.querySelectorAll(".building-target"));
+    let missing = 0, wrong = 0;
+    targets.forEach(function (t) {
+        if (t.dataset.built !== "true") { missing++; }
+        else if (t.dataset.builtType !== t.dataset.type) { wrong++; }
+    });
+    return { missing: missing, wrong: wrong };
+}
+
+function showBuildFailMessage(st) {
+    if (st.wrong > 0) {
+        messageTitle.textContent = tt("Wrong building");
+        messageText.textContent = tt("Some buildings are not the right type. Check which building each shadow needs.");
+    } else {
+        messageTitle.textContent = tt("Not finished building");
+        messageText.textContent = tt("Build on every shadow before you finish.");
+    }
+    nextLevelButton.style.display = "none";
+    gameMessage.classList.remove("hidden");
 }
 
 function showCargoFailMessage() {
@@ -5004,7 +5034,11 @@ runButton.addEventListener(
         }
 
         else if (isAtGoal()) {
-            if (isCargoDone(getCurrentLevel())) {
+            const bs = buildingStatus();
+            if (bs.missing > 0 || bs.wrong > 0) {
+                showBuildFailMessage(bs);
+            }
+            else if (isCargoDone(getCurrentLevel())) {
                 completeLevel();
             }
             else {
