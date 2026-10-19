@@ -4687,6 +4687,10 @@ function showEmptyText() {
 
     if (mainBlocks) {
 
+        /* sudah ada blok di program utama: teks kosong harus hilang,
+           kalau tidak ia menyelip di antara WHEN START CLICKED dan blok */
+        removeEmptyText();
+
         return;
 
     }
