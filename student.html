@@ -397,7 +397,53 @@ function stat(c, i) {
   const p = readJ(progKey(LID, S, "Quiz" + cidOf(c, i))), tot = c.questions.length, n = p && p.sig === quizSig(c) ? Object.keys(p.res || {}).length : 0;
   return { done: n >= tot && tot > 0, txt: `${n}/${tot}` };
 }
+// ---- PEMULIHAN: kirim ulang progress yang tersimpan di browser ini (aman diulang; server hanya mengisi yang belum ada) ----
+function resyncLocal() {
+  try {
+    const keys = [], lessons = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k.indexOf("robotProg") === 0) keys.push(k);
+      else if (k.indexOf("lesson_") === 0) { const l = readJ(k); if (l && l.id) lessons[String(l.id)] = l; }
+    }
+    const groups = {};
+    keys.forEach(k => {
+      const p = k.slice(9).split("|"); if (p.length < 3) return;
+      const cls = p[p.length - 1], name = p.slice(1, -1).join("|"), pre = p[0];
+      Object.keys(lessons).forEach(id => {
+        if (pre.slice(-(id.length + 1)) !== "_" + id) return;
+        const kind = pre.slice(0, -(id.length + 1)), Lx = lessons[id], pr = readJ(k);
+        if (!pr || !Lx.challenges) return;
+        const plan = lessonPlan(Lx), gk = id + "|" + name + "|" + cls;
+        const g = groups[gk] = groups[gk] || { Lx, name, cls, plan, items: [] };
+        if (kind === "Game") {
+          const gp = plan.find(x => x.type === "game"); if (!gp) return;
+          const nl = Math.max(1, (Lx.levels || []).length), b = Math.max(0, Math.min(nl - 1, Math.floor(+Lx.bonusLevels || 0)));
+          (pr.completed || []).map(Number).forEach(n => { if (n >= 1 && n <= nl) g.items.push({ challenge: gp.label, kind: "game", question: "Level " + n, answer: "Selesai (dipulihkan)", no: n, status: "selesai", score: 1, bonus: n > nl - b }); });
+        } else if (kind.indexOf("Quiz") === 0) {
+          const cid = kind.slice(4), ci = Lx.challenges.findIndex((c, i) => c.type !== "game" && cidOf(c, i) === cid);
+          if (ci < 0) return;
+          const c = Lx.challenges[ci];
+          if (pr.sig !== quizSig(c) || !pr.res) return;
+          Object.keys(pr.res).forEach(q => {
+            const r = pr.res[q], n = +q; if (!c.questions[n]) return;
+            g.items.push({ challenge: plan[ci].label, kind: "quiz", no: n + 1, question: raw(c.questions[n].q), answer: r.text, status: r.ok === true ? "benar" : r.ok === false ? "salah" : "tidak dinilai", score: r.ok === true ? 1 : r.ok === false ? 0 : "", attempt: r.tries || 1 });
+          });
+        }
+      });
+    });
+    Object.keys(groups).forEach(gk => {
+      const g = groups[gk]; if (!g.items.length) return;
+      const mk = "robotSync|" + gk, sig = g.items.map(i => i.challenge + i.no + (i.attempt || "")).join(",");
+      if (localStorage.getItem(mk) === sig) return;
+      api("submit", { lessonId: g.Lx.id, lessonTitle: g.Lx.title, name: g.name, cls: g.cls, plan: g.plan, items: g.items, resync: true }).catch(() => {});
+      try { localStorage.setItem(mk, sig); } catch (e) {}
+    });
+  } catch (e) {}
+}
 function begin() {
+  resyncLocal();
   if (!S || S.lesson !== LID || !S.name) { showLogin(); return; }
   history.replaceState(null, "", "student.html?lesson=" + encodeURIComponent(LID));
   showHub();
