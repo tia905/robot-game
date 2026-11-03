@@ -2,23 +2,70 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbxLjKQYA-EKPJV2LGnPg1SWFm1hRieE8h6IbBQY8V7R3v9ZxxkyhgFmhlND0pnJdfLy/exec";
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/14cX5ApZxgmDHWYca7CIxRctj7Sf4FRCmkHS0Jt9COks/edit?usp=sharing";
 
-async function api(action, data) {
-    const body = JSON.stringify(Object.assign({ action: action }, data));
-    // submit jawaban: coba ulang otomatis kalau jaringan/server sedang sibuk (murid tidak menunggu)
-    const tries = action === "submit" ? 4 : 1;
-    let err;
-    for (let i = 0; i < tries; i++) {
-        try {
-            const r = await fetch(API_URL, { method: "POST", body: body });
-            const j = await r.json();
-            if (j && j.ok === false && action === "submit" && i < tries - 1) throw new Error("retry");
-            return j;
-        } catch (e) {
-            err = e;
-            if (i < tries - 1) await new Promise(function (ok) { setTimeout(ok, 1500 * (i + 1)); });
+// ---------------------------------------------------------------------------
+// ANTREAN KIRIM (outbox): setiap jawaban disimpan dulu di browser, lalu dikirim.
+// Baru dihapus dari antrean setelah server membalas OK. Kalau gagal / jaringan putus /
+// halaman ditutup, jawaban tetap ada dan dikirim ulang otomatis (saat halaman dibuka lagi,
+// saat internet kembali, dan tiap ~15 detik). Server membuang duplikat lewat "sid".
+// ---------------------------------------------------------------------------
+const OB_KEY = "robotOutbox";
+function obRead() { try { return JSON.parse(localStorage.getItem(OB_KEY) || "[]"); } catch (e) { return []; } }
+function obWrite(a) { try { localStorage.setItem(OB_KEY, JSON.stringify(a)); return true; } catch (e) { return false; } }
+let obBusy = false;
+async function obFlush() {
+    if (obBusy) return;
+    obBusy = true;
+    try {
+        let q = obRead();
+        while (q.length) {
+            const job = q[0];
+            let ok = false, drop = false;
+            try {
+                const res = await fetch(API_URL, { method: "POST", body: job.body, keepalive: job.body.length < 60000 });
+                let j = null;
+                try { j = await res.json(); } catch (e2) { j = null; }
+                if (j && j.ok) ok = true;
+                else {
+                    // server sibuk / error: coba lagi nanti (menyerah setelah 60x gagal dari sisi server)
+                    job.f = (job.f || 0) + 1;
+                    if (job.f >= 60 || (j && j.ok === false && !j.retry)) drop = true;
+                }
+            } catch (e) { /* jaringan putus: coba lagi nanti, tidak dihitung gagal */ }
+            let cur = obRead();
+            if (ok || drop) cur = cur.filter(function (x) { return x.sid !== job.sid; });
+            else cur = cur.map(function (x) { return x.sid === job.sid ? job : x; });
+            obWrite(cur);
+            q = cur;
+            if (!ok && !drop) break;
         }
+    } finally { obBusy = false; }
+}
+window.addEventListener("online", function () { obFlush(); });
+document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") obFlush(); });
+setInterval(function () { if (obRead().length) obFlush(); }, 12000 + Math.random() * 6000);
+obFlush();
+
+async function api(action, data) {
+    if (action === "submit") {
+        const sid = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const body = JSON.stringify(Object.assign({ action: action, sid: sid }, data));
+        const q = obRead();
+        q.push({ sid: sid, body: body, t: Date.now() });
+        if (obWrite(q)) { obFlush(); return { ok: true, queued: true }; }
+        // penyimpanan browser tidak bisa dipakai: kirim langsung dengan coba ulang
+        let err;
+        for (let i = 0; i < 6; i++) {
+            try {
+                const r = await fetch(API_URL, { method: "POST", body: body, keepalive: body.length < 60000 });
+                const j = await r.json();
+                if (j && j.ok) return j;
+            } catch (e) { err = e; }
+            await new Promise(function (ok) { setTimeout(ok, 2000 * (i + 1)); });
+        }
+        throw err || new Error("submit gagal");
     }
-    throw err;
+    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify(Object.assign({ action: action }, data)) });
+    return r.json();
 }
 
 async function apiGet(action, params) {
