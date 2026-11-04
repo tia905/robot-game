@@ -443,7 +443,7 @@ function resyncLocal() {
   } catch (e) {}
 }
 function begin() {
-  resyncLocal();
+  // resyncLocal(); // DIMATIKAN: jangan tarik ulang progress lama dari browser, rekap hanya berisi data baru
   if (!S || S.lesson !== LID || !S.name) { showLogin(); return; }
   history.replaceState(null, "", "student.html?lesson=" + encodeURIComponent(LID));
   showHub();
