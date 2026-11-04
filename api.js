@@ -1,6 +1,6 @@
 // ISI DUA BARIS INI SETELAH DEPLOY APPS SCRIPT (lihat apps-script/Code.gs)
-const API_URL = "https://script.google.com/macros/s/AKfycbxLjKQYA-EKPJV2LGnPg1SWFm1hRieE8h6IbBQY8V7R3v9ZxxkyhgFmhlND0pnJdfLy/exec";
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/14cX5ApZxgmDHWYca7CIxRctj7Sf4FRCmkHS0Jt9COks/edit?usp=sharing";
+const API_URL = "https://script.google.com/macros/s/AKfycbzcaR7mv3ojjSM4hGzbWD7jRMM9HpR3Z0w3ga9jX1h_kl3hJCaqt9lZKgYOY_Fn7SpM/exec"; // <- tempel URL Web App (/exec) dari Deploy Apps Script di spreadsheet BARU
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZyarbS6sBJlK4oc2MFp7mdqO-KTGSLetue0dzx1WDAo/edit?usp=sharing";
 
 // ---------------------------------------------------------------------------
 // ANTREAN KIRIM (outbox): setiap jawaban disimpan dulu di browser, lalu dikirim.
