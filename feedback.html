@@ -40,6 +40,7 @@ label.l{font-weight:800;display:block;margin-top:4px}
 .pn textarea{font-family:inherit;font-size:17px;padding:10px 12px;border:3px solid #cfdcf3;border-radius:14px;width:100%;min-height:90px;resize:vertical;color:var(--n)}
 .pn .cnt{font-size:13px;opacity:.65;text-align:right}
 .mob{display:none}
+.blw{margin:22px 0 10px}.bl{display:block;width:100%;text-align:center;background:#FFC21A;color:var(--n);font-size:24px;padding:14px 18px;border:4px solid var(--n);box-shadow:0 6px 0 #b98400}.bl:active{transform:translateY(4px);box-shadow:0 2px 0 #b98400}
 .ql{font-weight:800;display:block;margin-top:6px;font-size:16px}
 .stars{display:flex;gap:4px;margin:4px 0}.stars button{padding:2px 8px;font-size:26px;background:#fff;color:#c9d3e6;box-shadow:none;border:3px solid #dbe4f5;border-radius:12px}.stars button.on{color:#f5a623;border-color:#f5a623;background:#fff8e1}
 .chs{display:grid;gap:6px;margin:4px 0}.chs button{text-align:left;background:#fff;color:var(--n);border:3px solid #dbe4f5;box-shadow:none;font-size:16px;padding:8px 12px;border-radius:14px}.chs button.on{border-color:var(--b);background:#e8f0ff}
@@ -87,7 +88,7 @@ const UI = {
   cls: { en: "Class", id: "Kelas" }, nm: { en: "Roll number & name", id: "Nomor absen & nama" },
   selCls: { en: "— choose class —", id: "— pilih kelas —" }, selNm: { en: "— choose name —", id: "— pilih nama —" },
   start: { en: "START", id: "MULAI" }, fillWho: { en: "Choose your class and name first.", id: "Pilih kelas dan namamu dulu ya." },
-  hi: { en: "Hi", id: "Hai" }, notMe: { en: "↩ Not you? Change", id: "↩ Bukan kamu? Ganti" }, back: { en: "← Lesson", id: "← Lesson" },
+  hi: { en: "Hi", id: "Hai" }, notMe: { en: "↩ Not you? Change", id: "↩ Bukan kamu? Ganti" }, back: { en: "← Lesson", id: "← Lesson" }, backL: { en: "← Back to lesson", id: "← Kembali ke lesson" },
   tGive: { en: "✍️ Give feedback", id: "✍️ Beri feedback" }, tMine: { en: "📬 For me", id: "📬 Untukku" },
   pickProj: { en: "Choose a friend's project", id: "Pilih project temanmu" }, open: { en: "▶ OPEN PROJECT", id: "▶ BUKA PROJECT" },
   doneNote: { en: "✓ = you already gave feedback to this friend.", id: "Tanda ✓ = kamu sudah memberi feedback ke teman itu." },
@@ -127,7 +128,7 @@ const T = k => UI[k][lang] || UI[k].en;
 const tx = o => !o ? "" : (typeof o === "string" ? o : (lang === "id" && o.id ? o.id : (o.en || o.id || "")));
 
 const shell = (inner, wide) => {
-  app.innerHTML = `<header><b>💬 ${esc(T("title"))}</b><a class="btn lo" style="padding:4px 12px;font-size:15px" href="student.html?lesson=${encodeURIComponent(LID)}">${esc(T("back"))}</a><button class="idt${lang === "id" ? " on" : ""}" id="lg" type="button">${lang === "id" ? "ID ✓" : "ID"}</button></header><main${wide ? ' class="wide"' : ""}>${inner}</main>`;
+  app.innerHTML = `<header><b>💬 ${esc(T("title"))}</b><a class="btn lo" style="padding:4px 12px;font-size:15px" href="student.html?lesson=${encodeURIComponent(LID)}">${esc(T("back"))}</a><button class="idt${lang === "id" ? " on" : ""}" id="lg" type="button">${lang === "id" ? "ID ✓" : "ID"}</button></header><main${wide ? ' class="wide"' : ""}>${inner}<div class="blw"><a class="btn bl" id="bl" href="student.html?lesson=${encodeURIComponent(LID)}">${esc(T("backL"))}</a></div></main>`;
   document.getElementById("lg").onclick = () => { lang = lang === "id" ? "en" : "id"; localStorage.setItem("robotLang", lang); if (view) view(); };
 };
 const sortList = c => inCls(c).slice().sort((a, b) => { const x = parseFloat(a.no), y = parseFloat(b.no); if (!isNaN(x) && !isNaN(y) && x !== y) return x - y; const p = String(a.no), q = String(b.no); return p < q ? -1 : p > q ? 1 : 0; });
@@ -198,14 +199,38 @@ function showHome() {
 function drawMenu(b) {
   const galleryOn = !SU || SU.gallery !== false, nx = SU.assignNext ? nextOf() : null;
   b.innerHTML = `<h2 style="margin:6px 4px 10px">${esc(T("menuTitle"))}</h2><div class="menu">
-    ${galleryOn ? `<button class="mc" data-p="gallery"><span>🖼️</span><div><b>${esc(T("mGallery"))}</b><small>${esc(T("mGalleryD"))}</small></div></button>` : ""}
-    <button class="mc" data-p="give"><span>✍️</span><div><b>${esc(T("mGive"))}</b><small>${nx ? esc(T("mFor")) + ": " + esc(nx.no) + ". " + esc(nx.name) : esc(T("mGiveD"))}</small></div></button>
-    <button class="mc" data-p="mine"><span>📬</span><div><b>${esc(T("mMine"))}</b><small>${esc(T("mMineD"))}</small></div></button></div>`;
+    <button class="mc" data-p="give"><span>✍️</span><div><b>1. ${esc(T("mGive"))}</b><small>${nx ? esc(T("mFor")) + ": " + esc(nx.no) + ". " + esc(nx.name) : esc(T("mGiveD"))}</small></div></button>
+    ${galleryOn ? `<button class="mc" data-p="gallery"><span>🖼️</span><div><b>2. ${esc(T("mGallery"))}</b><small>${esc(T("mGalleryD"))}</small></div></button>` : ""}
+    <button class="mc" data-p="mine"><span>📬</span><div><b>${galleryOn ? "3" : "2"}. ${esc(T("mMine"))}</b><small>${esc(T("mMineD"))}</small></div></button></div>`;
   b.querySelectorAll(".mc").forEach(x => x.onclick = () => { page = x.dataset.p; showHome(); });
 }
 
 // ---------- GALLERY WALK ----------
-const cover = p => p.pid ? `https://uploads.scratch.mit.edu/get_image/project/${encodeURIComponent(p.pid)}_480x360.png` : "";
+// ---- COVER ASLI PROJECT ----
+// Diambil dari API Scratch (field "image" = cover yang dipasang pemilik project), disimpan di browser 30 menit.
+// Kalau API gagal: coba alamat gambar standar Scratch; kalau tetap gagal: ikon 🎮.
+const CVK = "fbCover_v2", CVTTL = 30 * 60 * 1000;
+let CV = readJ(CVK) || {};
+const guessCover = pid => `https://cdn2.scratch.mit.edu/get_image/project/${encodeURIComponent(pid)}_480x360.png`;
+const bigCover = u => String(u).replace(/_\d+x\d+(\.\w+)$/, "_480x360$1");
+const coverFresh = pid => CV[pid] && Date.now() - CV[pid].t < CVTTL ? CV[pid].u : "";
+async function coverUrl(pid) {
+  const c = coverFresh(pid); if (c) return c;
+  try {
+    const r = await fetch("https://api.scratch.mit.edu/projects/" + encodeURIComponent(pid));
+    if (!r.ok) throw 0;
+    const j = await r.json(), im = j.images || {}, base = j.image || im["282x218"] || Object.values(im)[0] || "";
+    if (base) { CV[pid] = { u: bigCover(base), t: Date.now() }; writeJ(CVK, CV); return CV[pid].u; }
+  } catch (e) {}
+  return "";
+}
+const imgTag = u => `<img loading="lazy" alt="" src="${esc(u)}" data-fb="${esc(String(u).replace(/_480x360/, "_282x218"))}">`;
+const thumbHTML = p => !p.pid ? `<div class="ph"><i>🙈</i>${esc(T("noSubShort"))}</div>` : (coverFresh(p.pid) ? imgTag(coverFresh(p.pid)) : `<div class="ph"><i>⏳</i></div>`);
+async function fillCovers(pg) {
+  const need = [...pg.querySelectorAll(".gt[data-pid]")].filter(el => !el.querySelector("img")); let i = 0;
+  const run = async () => { while (i < need.length) { const el = need[i++], u = (await coverUrl(el.dataset.pid)) || guessCover(el.dataset.pid); if (document.body.contains(el)) el.innerHTML = imgTag(u); } };
+  await Promise.all([run(), run(), run(), run()]);
+}
 async function loadStars() {
   STAR = { on: !!SU.stars, tokens: Math.max(1, Math.floor(+SU.starTokens) || 5), mine: STAR.mine || [] };
   if (!STAR.on) return;
@@ -223,11 +248,12 @@ async function drawGallery(pg) {
   const list = sortList(ME.cls);
   const paint = () => {
     pg.innerHTML = `<div class="card"><h2>🖼️ ${esc(T("mGallery"))} • ${esc(ME.cls)}</h2><p><small>${esc(T("gHint"))}</small></p>${tokBar()}
-      ${list.length ? `<div class="gg">${list.map((p, i) => `<button class="gc${isMe(p) ? " me" : ""}" data-i="${i}"><div class="gt">${p.pid ? `<img loading="lazy" alt="" src="${esc(cover(p))}">` : `<div class="ph"><i>🙈</i>${esc(T("noSubShort"))}</div>`}</div>
+      ${list.length ? `<div class="gg">${list.map((p, i) => `<button class="gc${isMe(p) ? " me" : ""}" data-i="${i}"><div class="gt"${p.pid ? ` data-pid="${esc(p.pid)}"` : ""}>${thumbHTML(p)}</div>
         <div class="gi"><span class="n"><b>${esc(p.no)}</b> ${esc(p.name)}</span>${STAR.mine.includes(String(p.no)) ? `<span class="gs">⭐</span>` : ""}</div></button>`).join("")}</div>` : `<p class="empty">${esc(T("gNone"))}</p>`}</div>`;
-    pg.querySelectorAll("img").forEach(im => im.onerror = () => { im.outerHTML = `<div class="ph"><i>🎮</i></div>`; });
     pg.querySelectorAll(".gc").forEach(x => x.onclick = () => openGallery(list, +x.dataset.i));
+    fillCovers(pg);
   };
+  if (!pg.dataset.cvErr) { pg.dataset.cvErr = "1"; pg.addEventListener("error", e => { const im = e.target; if (!im || im.tagName !== "IMG") return; if (im.dataset.fb && im.src !== im.dataset.fb) { im.src = im.dataset.fb; } else { im.outerHTML = `<div class="ph"><i>🎮</i></div>`; } }, true); }
   paint();
   if (SU.stars) { await loadStars(); if (page === "gallery" && document.body.contains(pg)) paint(); }
 }

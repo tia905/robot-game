@@ -26,6 +26,16 @@ details{margin:6px 0}summary{cursor:pointer;font-weight:700}
 .share{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.share input{flex:1;min-width:220px}
 .pill{display:inline-block;background:#e6edfa;border-radius:20px;padding:2px 10px;margin:2px;font-size:13px}
 .tw{max-height:420px;overflow:auto}
+.sc{border:2px solid #dde6f7;border-radius:14px;padding:12px 14px;margin:12px 0;background:#fbfcff}
+.sc h4{margin:0 0 8px;font-size:16px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px}.chip{background:#eef3fc;border-radius:10px;padding:4px 10px;font-size:13px}.chip b{font-size:16px;color:var(--b)}
+.bars{display:grid;gap:5px;margin:8px 0;max-height:460px;overflow:auto;padding-right:4px}
+.br{display:grid;grid-template-columns:34px minmax(90px,170px) 1fr 34px;gap:8px;align-items:center;font-size:13px}
+.br .rk{text-align:right;font-weight:700;color:#5b6b8c}.br .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.br .tr{background:#eef3fc;border-radius:6px;height:20px;overflow:hidden}.br .tr i{display:block;height:100%;background:linear-gradient(90deg,#f5a623,#E8832A);border-radius:6px;min-width:0}
+.br.hi .tr i{background:linear-gradient(90deg,#ffd54a,#f5a623)}.br b{text-align:right}
+.ins{margin:8px 0 0;padding:8px 12px;background:#fff8e1;border-left:5px solid var(--o);border-radius:8px;font-size:13px;line-height:1.6}.ins li{margin:2px 0}.ins ul{margin:0;padding-left:18px}
+.lnk2{color:var(--b);font-weight:700}
 </style>
 </head>
 <body>
@@ -57,15 +67,16 @@ details{margin:6px 0}summary{cursor:pointer;font-weight:700}
 
   <div class="c">
     <h3>📬 Feedback yang sudah masuk</h3>
-    <p class="hint">Guru bisa menyembunyikan feedback yang kurang pantas: buka Google Sheet, tab <b>Feedback</b>, ketik <b>x</b> di kolom <i>sembunyikan</i> pada baris itu. Feedback tersebut langsung hilang dari tampilan murid.</p>
-    <div class="row"><button class="g" id="load">🔄 Muat feedback</button><a id="sheetLink" target="_blank" rel="noopener" style="color:#1B4F9C;font-weight:700">Buka Google Sheet ↗</a></div>
+    <p class="hint">Feedback dipisah per lesson: di Google Sheet ada tab <b id="fbTab">Feedback - (judul lesson)</b> khusus lesson ini. Untuk menyembunyikan feedback yang kurang pantas, ketik <b>x</b> di kolom <i>sembunyikan</i> pada baris itu; feedback langsung hilang dari tampilan murid.</p>
+    <div class="row"><button class="g" id="load">🔄 Muat feedback</button><button id="fbCsv" disabled>⬇ Download CSV</button><a id="sheetLink" target="_blank" rel="noopener" style="color:#1B4F9C;font-weight:700">Buka Google Sheet ↗</a></div>
     <div id="rep"></div>
   </div>
 
   <div class="c">
     <h3>⭐ Bintang Gallery Walk</h3>
-    <p class="hint">Jumlah bintang yang diterima tiap project (hanya guru yang melihat ini).</p>
-    <div class="row"><button class="g" id="loadStars">🔄 Muat bintang</button></div>
+    <p class="hint">Peringkat project per kelas (grafik batang), analisis singkat untuk guru, dan unduhan CSV. Setiap kali dimuat, rekap yang sama otomatis ditulis ke Google Sheet di tab <b id="stTab">Rekap Bintang - (judul lesson)</b> lengkap dengan chart. Hanya guru yang melihat ini.</p>
+    <div class="row"><button class="g" id="loadStars">🔄 Muat bintang &amp; simpan ke Google Sheet</button><button id="csvRank" disabled>⬇ CSV peringkat</button><button id="csvSum" disabled>⬇ CSV ringkasan kelas</button><a id="stLink" class="lnk2" target="_blank" rel="noopener" style="display:none">Buka tab rekap ↗</a></div>
+    <div id="starMsg" class="hint"></div>
     <div id="starRep"></div>
   </div>
 </div>
@@ -176,10 +187,14 @@ $("load").onclick = async e => {
     const r = await api("getFbAll", { key, lessonId: LS.id });
     if (!r.ok) throw new Error(r.error);
     sessionStorage.setItem("adminKey", key);
+    if (r.tab) { $("fbTab").textContent = r.tab; if (r.gid != null) $("sheetLink").href = sheetBase() + "#gid=" + r.gid; }
+    FBROWS = r.rows; $("fbCsv").disabled = false;
     renderReport(r.rows);
   } catch (err) { alert("Gagal memuat: " + err.message); }
   b.disabled = false; b.textContent = "🔄 Muat feedback";
 };
+let FBROWS = [];
+$("fbCsv").onclick = () => downloadCsv([["Waktu", "Kelas penerima", "No penerima", "Nama penerima", "Kelas pengirim", "No pengirim", "Nama pengirim", "Feedback", "Disembunyikan"]].concat(FBROWS.map(r => [new Date(r[0]).toLocaleString("id-ID"), r[2], r[3], r[4], r[5], r[6], r[7], r[8], String(r[9] || "").trim() ? "ya" : ""])), "feedback-" + slug(LS.title) + ".csv");
 function renderReport(rows) {
   const vis = rows.filter(r => !String(r[9] || "").trim());
   const gave = {}, got = {};
@@ -193,23 +208,40 @@ function renderReport(rows) {
   $("rep").innerHTML = h;
 }
 
+const sheetBase = () => (typeof SHEET_URL === "string" ? SHEET_URL.replace(/\/edit.*$/, "/edit") : "");
+const csvCell = v => { v = String(v == null ? "" : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return /[",\n;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+function downloadCsv(rows, name) {
+  const t = "\ufeff" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], { type: "text/csv;charset=utf-8" })); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+const slug = s => String(s || "lesson").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "lesson";
+let STREP = null;
+function renderStarReport(R) {
+  STREP = R;
+  let h = `<div class="ok"><b>${R.total}</b> bintang sudah diberikan • ${R.tokens} token per murid.</div>`;
+  R.classes.forEach(c => {
+    const rows = R.rows.filter(r => r.cls === c.cls), mx = Math.max(1, ...rows.map(r => r.stars)), notes = (R.notes.find(n => n.cls === c.cls) || { lines: [] }).lines;
+    h += `<div class="sc"><h4>${esc(c.cls)}</h4><div class="chips"><span class="chip">👥 <b>${c.students}</b> murid</span><span class="chip">⭐ total <b>${c.total}</b></span><span class="chip">rata-rata <b>${c.avg}</b>/project</span><span class="chip">pemberi bintang <b>${c.givers}/${c.students}</b></span><span class="chip">token habis <b>${c.full}</b></span><span class="chip">belum dapat bintang <b>${c.zero.length}</b></span></div>
+      <div class="bars">${rows.map(r => `<div class="br${r.stars > 0 && r.rank <= 3 ? " hi" : ""}"><span class="rk">${r.stars > 0 ? (r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : r.rank === 3 ? "🥉" : "#" + r.rank) : "–"}</span><span class="nm" title="${esc(r.no + ". " + r.name)}">${esc(r.no)}. ${esc(r.name)}</span><span class="tr"><i style="width:${r.stars / mx * 100}%"></i></span><b>${r.stars}</b></div>`).join("")}</div>
+      <div class="ins"><ul>${notes.map(l => `<li>${esc(l)}</li>`).join("")}</ul></div>
+      <details><summary>Detail tabel (bintang diberikan &amp; feedback)</summary><div class="tw"><table><tr><th>#</th><th>No</th><th>Nama</th><th>⭐ diterima</th><th>% kelas</th><th>Bintang diberikan</th><th>Feedback diterima</th><th>Feedback dikirim</th></tr>${rows.map(r => `<tr><td>${r.rank}</td><td>${esc(r.no)}</td><td>${esc(r.name)}</td><td>${r.stars}</td><td>${r.pct}%</td><td>${r.given}</td><td>${r.fbGot}</td><td>${r.fbSent}</td></tr>`).join("")}</table></div></details></div>`;
+  });
+  $("starRep").innerHTML = h; $("csvRank").disabled = $("csvSum").disabled = false;
+}
+$("csvRank").onclick = () => STREP && downloadCsv([["Kelas", "Peringkat", "No", "Nama", "Bintang diterima", "% bintang kelas", "Bintang diberikan", "Feedback diterima", "Feedback dikirim"]].concat(STREP.rows.map(r => [r.cls, r.rank, r.no, r.name, r.stars, r.pct, r.given, r.fbGot, r.fbSent])), "peringkat-bintang-" + slug(LS.title) + ".csv");
+$("csvSum").onclick = () => STREP && downloadCsv([["Kelas", "Jumlah murid", "Murid memberi bintang", "Token habis", "Total bintang", "Rata-rata per project", "Bintang tertinggi", "Terbanyak", "Project belum dapat bintang", "Nama belum dapat bintang", "Nama belum memberi bintang", "Catatan"]].concat(STREP.classes.map(c => [c.cls, c.students, c.givers, c.full, c.total, c.avg, c.max, c.champs, c.zero.length, c.zero.join("; "), c.noGive.join("; "), ((STREP.notes.find(n => n.cls === c.cls) || { lines: [] }).lines).join(" ")])), "ringkasan-kelas-" + slug(LS.title) + ".csv");
 $("loadStars").onclick = async e => {
   const key = sessionStorage.getItem("adminKey") || prompt("Masukkan kunci admin:"); if (!key) return;
-  const b = e.target; b.disabled = true; b.textContent = "Memuat…";
+  const b = e.target; b.disabled = true; b.textContent = "Memuat & menulis ke Sheet…"; $("starMsg").textContent = "";
   try {
-    const r = await api("getStarsAll", { key, lessonId: LS.id });
+    const r = await api("getStarReport", { key, lessonId: LS.id, write: true });
     if (!r.ok) throw new Error(r.error);
     sessionStorage.setItem("adminKey", key);
-    const cnt = {}; r.rows.forEach(x => { const k = x[0] + "|" + x[4]; cnt[k] = (cnt[k] || 0) + 1; });
-    const cls = []; SET.projects.forEach(p => { if (!cls.includes(p.cls)) cls.push(p.cls); });
-    let h = `<div class="ok"><b>${r.rows.length}</b> bintang sudah diberikan.</div>`;
-    cls.forEach(c => {
-      const ps = SET.projects.filter(p => p.cls === c).map(p => ({ p, n: cnt[c + "|" + p.no] || 0 })).sort((a, z) => z.n - a.n);
-      h += `<details open><summary>${esc(c)}</summary><div class="tw"><table><tr><th>#</th><th>Nama</th><th>⭐</th></tr>${ps.map(x => `<tr><td>${esc(x.p.no)}</td><td>${esc(x.p.name)}</td><td>${x.n}</td></tr>`).join("")}</table></div></details>`;
-    });
-    $("starRep").innerHTML = h;
+    renderStarReport(r);
+    if (r.tab) { $("stTab").textContent = r.tab; $("stLink").href = sheetBase() + "#gid=" + r.gid; $("stLink").style.display = ""; $("starMsg").innerHTML = "✅ Rekap & chart tersimpan di Google Sheet, tab <b>" + esc(r.tab) + "</b>."; }
+    else if (r.sheetErr) $("starMsg").innerHTML = "⚠️ Rekap tampil di sini, tapi gagal ditulis ke Google Sheet: " + esc(r.sheetErr);
   } catch (err) { alert("Gagal memuat: " + err.message); }
-  b.disabled = false; b.textContent = "🔄 Muat bintang";
+  b.disabled = false; b.textContent = "🔄 Muat bintang & simpan ke Google Sheet";
 };
 
 // muat data yang sudah tersimpan di server (kalau ada)
