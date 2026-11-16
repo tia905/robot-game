@@ -89,6 +89,7 @@ function lessonPlan(L) {
         var base = String(c.title || (c.type === "game" ? "Game" : "Quiz")).replace(/\s*\|\s*/g, " / ").trim() || "Challenge";
         seen[base] = (seen[base] || 0) + 1;
         var label = seen[base] > 1 ? base + " (" + seen[base] + ")" : base;
+        if (c.type === "feedback") return { label: label, type: "feedback" };
         return c.type === "game" ? { label: label, type: "game", reg: nl - b, bonus: b } : { label: label, type: "quiz", n: (c.questions || []).length };
     });
 }

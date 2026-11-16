@@ -389,6 +389,7 @@ const bonusN = () => Math.max(0, Math.min(nLv() - 1, Math.floor(+L.bonusLevels |
 const readJ = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
 const quizSig = c => c.questions.map(q => raw(q.q) || "").join("|");
 function stat(c, i) {
+  if (c.type === "feedback") { const g = readJ("fbGiven_" + LID) || {}, n = Object.keys(g).length; return { done: n > 0, txt: n + " feedback" }; }
   if (c.type === "game") {
     const p = readJ(progKey(LID, S, "Game")), comp = p ? (p.completed || []).map(Number) : [], reg = nLv() - bonusN(), b = bonusN();
     const dr = comp.filter(n => n >= 1 && n <= reg).length, db = comp.filter(n => n > reg && n <= nLv()).length;
@@ -464,13 +465,12 @@ function showHub() {
   const lockedAt = i => !!L.lockOrder && st.slice(0, i).some(x => !x.done);
   const nextI = L.challenges.findIndex((_, k) => !st[k].done && !lockedAt(k));
   shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div><button class="lo" id="lo" type="button">↩ ${esc(plain("sw"))}</button></div>
-    <div class="mascot"><img src="assets/tunas-unggul.webp" alt="Tunas Unggul" width="100" height="110"><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => { const lk = lockedAt(i); return `<button class="node c${i % 3}${i === nextI ? " next" : ""}${lk ? " locked" : ""}" data-i="${i}"><span>${lk ? "🔒" : st[i].done ? "⭐" : c.type === "game" ? "🤖" : i + 1}</span>${esc(c.title)}<small>${st[i].txt}</small></button>`; }).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}${L.feedback ? `<div style="text-align:center"><button class="go" id="fbb" style="max-width:420px">💬 Feedback Teman</button></div>` : ""}`, true);
-  const fbb = document.getElementById("fbb"); if (fbb) fbb.onclick = () => { location.href = "feedback.html?lesson=" + encodeURIComponent(LID); };
+    <div class="mascot"><img src="assets/tunas-unggul.webp" alt="Tunas Unggul" width="100" height="110"><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => { const lk = lockedAt(i); return `<button class="node c${i % 3}${i === nextI ? " next" : ""}${lk ? " locked" : ""}" data-i="${i}"><span>${lk ? "🔒" : st[i].done ? "⭐" : c.type === "game" ? "🤖" : c.type === "feedback" ? "💬" : i + 1}</span>${esc(c.title)}<small>${st[i].txt}</small></button>`; }).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
   document.getElementById("lo").onclick = () => { S = null; localStorage.removeItem("robotStudent"); sessionStorage.removeItem("robotStudent"); showLogin(); };
   app.querySelectorAll(".node").forEach(b => b.onclick = () => {
     const i = +b.dataset.i, c = L.challenges[i];
     if (lockedAt(i)) { alert(msg("locked")); return; }
-    if (c.type === "game") location.href = "index.html?lesson=" + encodeURIComponent(LID) + "&student=1"; else startQuiz(i);
+    if (c.type === "game") location.href = "index.html?lesson=" + encodeURIComponent(LID) + "&student=1"; else if (c.type === "feedback") location.href = "feedback.html?lesson=" + encodeURIComponent(LID); else startQuiz(i);
   });
 }
 function startQuiz(ci) {

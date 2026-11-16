@@ -47,7 +47,7 @@ let PLAN = {};
 async function loadPlan() {
   PLAN = {};
   const id = $("fl").value; if (!id) return;
-  try { const r = await apiGet("getLesson", { id }); if (r.ok) lessonPlan(r.lesson).forEach(p => PLAN[p.label] = p); } catch (e) {}
+  try { const r = await apiGet("getLesson", { id }); if (r.ok) lessonPlan(r.lesson).filter(p => p.type !== "feedback").forEach(p => PLAN[p.label] = p); } catch (e) {}
 }
 function fillCls() {
   const cs = [...new Set(rows.filter(x => x.lid === $("fl").value).map(x => x.cls))].sort();

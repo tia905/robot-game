@@ -27,6 +27,7 @@ img{max-height:56px;border-radius:6px}
 .att{background:#fff1e0;border:2px solid var(--o);border-radius:8px;padding:4px 8px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px}.att input{width:56px;flex:none;padding:4px 6px}.bi2{display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex:1;min-width:260px}
 .hint{color:#5b6b8c;font-size:13px;margin:4px 0}
 .ck{font-weight:700;color:var(--g)}
+.lnk{display:inline-block;background:#e6edfa;color:var(--b);padding:8px 12px;border-radius:8px;font-weight:700;text-decoration:none}
 input.auto{background:#eefbea;border-color:#b7e2b0}
 .top2{margin:0 0 10px}.empty{text-align:center;padding:18px;border:3px dashed #b9c9e8;border-radius:16px;background:#f7f9ff;margin:14px 0}.empty b{font-size:18px}.empty p{margin:6px 0 12px;color:#5b6b8c}
 .addrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:10px;border:2px dashed #b9c9e8;border-radius:12px}
@@ -36,14 +37,14 @@ input.auto{background:#eefbea;border-color:#b7e2b0}
 </style>
 </head>
 <body>
-<div class="top"><a href="admin.html">← Back</a><h2 id="t"></h2><button class="add" data-a="addquiz">+ Quiz</button><button class="add" data-a="addgame">+ Game</button><button class="add" id="tr">🌐 Translate</button><button class="main" id="save">SAVE</button></div>
+<div class="top"><a href="admin.html">← Back</a><h2 id="t"></h2><button class="add" data-a="addquiz">+ Quiz</button><button class="add" data-a="addgame">+ Game</button><button class="add" data-a="addfb">+ Feedback</button><button class="add" id="tr">🌐 Translate</button><button class="main" id="save">SAVE</button></div>
 <div class="w">
   <div class="c order"><b>🔀 Urutan challenge</b>
     <p class="hint">Atur urutan lewat tombol <b>⬆ Naik</b> / <b>⬇ Turun</b> di tiap challenge (misal Quiz dulu baru Game, atau sebaliknya). Urutan yang tampil di bawah = urutan yang dilihat murid. Setelah selesai tekan <b>SAVE</b> lalu <b>RE-PUBLISH</b>.</p>
     <label class="ck"><input type="checkbox" id="lock"> 🔒 Kunci urutan: murid harus menyelesaikan challenge sebelumnya dulu</label>
   </div>
   <div id="hint"></div><div id="list"></div>
-  <div class="row"><button class="add" data-a="addquiz">+ Quiz / Exit Ticket</button><button class="add" data-a="addgame">+ Game</button></div></div>
+  <div class="row"><button class="add" data-a="addquiz">+ Quiz / Exit Ticket</button><button class="add" data-a="addgame">+ Game</button><button class="add" data-a="addfb">+ Feedback</button></div></div>
 <script src="api.js"></script>
 <script src="translate.js"></script>
 <script>
@@ -51,7 +52,7 @@ const id = new URLSearchParams(location.search).get("lesson");
 const lessons = JSON.parse(localStorage.getItem("robotLessons")) || [];
 const LS = lessons.find(x => String(x.id) === id);
 if (!LS) { alert("Lesson not found"); location.href = "admin.html"; }
-LS.challenges = (LS.challenges || [{ type: "game", title: "Game" }]).filter(c => c.type === "game" || c.type === "quiz");
+LS.challenges = (LS.challenges || [{ type: "game", title: "Game" }]).filter(c => c.type === "game" || c.type === "quiz" || c.type === "feedback");
 const C = LS.challenges, list = document.getElementById("list");
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const raw = o => (o && (o.en || o.id)) || "";
@@ -70,6 +71,25 @@ function norm(q) {
 }
 const newId = () => Math.random().toString(36).slice(2, 8);
 C.forEach(c => { if (!c.cid) c.cid = newId(); if (c.type === "quiz") { c.questions = c.questions.map(norm); c.questions.forEach(q => { if (q.type === "dropdown") q.blanks = q.blanks.map(b => b.o ? b : { o: { en: b.opts || "", id: "", list: true } }); }); if (!c.attempts) c.attempts = 1; c.questions.forEach(q => { if (q.type === "choice" && !q.mode) q.mode = q.options.filter(o => o.ok).length > 1 ? "multi" : "single"; }); } });
+
+// ---- Challenge FEEDBACK (feedback teman): pertanyaan bisa diatur sendiri ----
+const FQ = { text: "⌨️ Isian (teks)", rating: "⭐ Bintang 1–5", choice: "🔘 Pilihan (tanpa benar/salah)" };
+D.fq = ty => ty === "choice" ? { type: "choice", q: E(), options: [E(), E()] } : { type: ty, q: E() };
+D.fopt = () => E();
+C.forEach(c => { if (c.type === "feedback") { if (!c.prompt) c.prompt = E(); if (!c.questions || !c.questions.length) c.questions = [D.fq("text")]; } });
+function fqForm(q, b, j) {
+  let h = `<div class="q"><div class="qh"><span class="tag">Pertanyaan ${j + 1} · ${FQ[q.type] || q.type}</span><span><button class="dup" data-a="dup" data-p="${b}">⧉ Duplicate</button> ${del(b)}</span></div><div class="row">${bi(b + ".q", q.q, "Pertanyaan")}</div>`;
+  if (q.type === "choice") h += q.options.map((o, k) => `<div class="row"><b>${k + 1}</b>${bi(`${b}.options.${k}`, o, "Pilihan " + (k + 1))}${q.options.length > 2 ? del(`${b}.options.${k}`) : ""}</div>`).join("") + add(b + ".options", "fopt", "Pilihan");
+  if (q.type === "rating") h += `<p class="hint">Murid memilih 1–5 bintang.</p>`;
+  return h + "</div>";
+}
+function fbEditor(c, i) {
+  return `<div class="help"><b>Cara membuat:</b> tulis arahan singkat (boleh dikosongkan), lalu tambah pertanyaan feedback: isian, bintang, atau pilihan. Tidak ada jawaban benar/salah. Teks English/Indonesia bisa diterjemahkan otomatis lewat tombol 🌐 Translate. Setelah selesai tekan <b>SAVE</b> lalu <b>RE-PUBLISH</b>.</div>
+    <div class="row"><b>Arahan:</b>${bi(`${i}.prompt`, c.prompt, "Arahan di atas pertanyaan (opsional)")}</div>` +
+    c.questions.map((q, j) => fqForm(q, `${i}.questions.${j}`, j)).join("") +
+    `<div class="addrow"><b>+ Tambah pertanyaan:</b>${Object.keys(FQ).map(k => `<button data-a="addfq" data-p="${i}.questions" data-t="${k}">${FQ[k]}</button>`).join("")}</div>
+    <div class="row"><a class="lnk" href="feedback-admin.html?lesson=${encodeURIComponent(LS.id)}">📎 Data murid (Excel), nama pengirim &amp; rekap feedback →</a></div>`;
+}
 const lockBox = document.getElementById("lock");
 lockBox.checked = !!LS.lockOrder;
 lockBox.onchange = () => { LS.lockOrder = lockBox.checked; };
@@ -114,10 +134,10 @@ function render() {
   document.getElementById("t").textContent = LS.title;
   const hasQuiz = C.some(c => c.type === "quiz");
   document.getElementById("hint").innerHTML = hasQuiz ? "" : `<div class="empty"><b>📝 Belum ada quiz</b><p>Lesson ini baru punya Game. Klik tombol di bawah untuk bikin quiz / exit ticket.</p><button class="add" data-a="addquiz">+ Buat Quiz sekarang</button></div>`;
-  list.innerHTML = C.map((c, i) => `<div class="c"><div class="h"><b>${i + 1}. ${c.type === "game" ? "🎮" : "❓"}</b><input type="text" data-p="${i}.title" value="${esc(c.title)}">
+  list.innerHTML = C.map((c, i) => `<div class="c"><div class="h"><b>${i + 1}. ${c.type === "game" ? "🎮" : c.type === "feedback" ? "💬" : "❓"}</b><input type="text" data-p="${i}.title" value="${esc(c.title)}">
     ${c.type === "quiz" ? `<span class="cnt">${c.questions.length} question${c.questions.length === 1 ? "" : "s"}</span><label class="att">🎯 Kesempatan menjawab <input type="number" min="1" max="10" data-p="${i}.attempts" value="${esc(c.attempts || 1)}"> kali</label>` : ""}
     <button data-a="up" data-p="${i}" ${i === 0 ? "disabled" : ""}>⬆ Naik</button><button data-a="dn" data-p="${i}" ${i === C.length - 1 ? "disabled" : ""}>⬇ Turun</button><button class="x" data-a="delc" data-p="${i}">Delete</button></div>` +
-    (c.type === "game" ? "<p>Students play the levels you built in the Level Editor.</p>" :
+    (c.type === "game" ? "<p>Students play the levels you built in the Level Editor.</p>" : c.type === "feedback" ? fbEditor(c, i) :
       (c.questions.length > 2 ? `<div class="addrow top2"><b>+ Add question:</b>${Object.keys(TL).map(k => `<button data-a="addq" data-p="${i}.questions" data-t="${k}">${TL[k]}</button>`).join("")}</div>` : "") +
       c.questions.map((q, j) => qForm(q, `${i}.questions.${j}`)).join("") +
       `<div class="addrow"><b>+ Add question:</b>${Object.keys(TL).map(k => `<button data-a="addq" data-p="${i}.questions" data-t="${k}">${TL[k]}</button>`).join("")}</div>` +
@@ -138,6 +158,8 @@ document.body.addEventListener("click", e => {
   const b = e.target.closest("button[data-a]"); if (!b) return;
   const a = b.dataset.a, p = b.dataset.p;
   if (a === "addgame") { if (C.some(c => c.type === "game")) return alert("Only one Game per lesson."); C.push({ type: "game", title: "Game", cid: newId() }); }
+  if (a === "addfb") { if (C.some(c => c.type === "feedback")) return alert("Hanya satu Feedback per lesson."); C.push({ type: "feedback", title: "Feedback", cid: newId(), prompt: E(), questions: [D.fq("text")] }); focusNew = "quiz"; }
+  if (a === "addfq") walk(p.split(".")).push(D.fq(b.dataset.t));
   if (a === "addquiz") C.push({ type: "quiz", title: "Quiz", cid: newId(), attempts: 1, questions: [D.q("single")] }); focusNew = "quiz";
   if (a === "up" || a === "dn" || a === "delc") {
     const i = +p;
@@ -155,6 +177,13 @@ document.body.addEventListener("click", e => {
 });
 
 function problem() {
+  for (const c of C) if (c.type === "feedback") {
+    if (!c.questions.length) return `"${c.title}" belum punya pertanyaan.`;
+    for (const [j, q] of c.questions.entries()) {
+      if (!raw(q.q).trim()) return `"${c.title}" pertanyaan ${j + 1}: tulis pertanyaannya.`;
+      if (q.type === "choice" && (q.options.length < 2 || q.options.some(o => !raw(o).trim()))) return `"${c.title}" pertanyaan ${j + 1}: isi semua pilihan (minimal 2).`;
+    }
+  }
   for (const c of C) if (c.type === "quiz") {
     if (!c.questions.length) return `"${c.title}" has no questions.`;
     for (const [j, q] of c.questions.entries()) {
