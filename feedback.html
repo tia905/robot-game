@@ -88,7 +88,7 @@ const UI = {
   cls: { en: "Class", id: "Kelas" }, nm: { en: "Roll number & name", id: "Nomor absen & nama" },
   selCls: { en: "— choose class —", id: "— pilih kelas —" }, selNm: { en: "— choose name —", id: "— pilih nama —" },
   start: { en: "START", id: "MULAI" }, fillWho: { en: "Choose your class and name first.", id: "Pilih kelas dan namamu dulu ya." },
-  hi: { en: "Hi", id: "Hai" }, notMe: { en: "↩ Not you? Change", id: "↩ Bukan kamu? Ganti" }, back: { en: "← Lesson", id: "← Lesson" }, backL: { en: "← Back to lesson", id: "← Kembali ke lesson" },
+  hi: { en: "Hi", id: "Hai" }, notMe: { en: "↩ Not you? Change", id: "↩ Bukan kamu? Ganti" }, back: { en: "← Lesson", id: "← Lesson" }, backL: { en: "← Back to lesson", id: "← Kembali ke lesson" }, backM: { en: "← Back to menu", id: "← Kembali ke menu" },
   tGive: { en: "✍️ Give feedback", id: "✍️ Beri feedback" }, tMine: { en: "📬 For me", id: "📬 Untukku" },
   pickProj: { en: "Choose a friend's project", id: "Pilih project temanmu" }, open: { en: "▶ OPEN PROJECT", id: "▶ BUKA PROJECT" },
   doneNote: { en: "✓ = you already gave feedback to this friend.", id: "Tanda ✓ = kamu sudah memberi feedback ke teman itu." },
@@ -127,8 +127,10 @@ const UI = {
 const T = k => UI[k][lang] || UI[k].en;
 const tx = o => !o ? "" : (typeof o === "string" ? o : (lang === "id" && o.id ? o.id : (o.en || o.id || "")));
 
-const shell = (inner, wide) => {
-  app.innerHTML = `<header><b>💬 ${esc(T("title"))}</b><a class="btn lo" style="padding:4px 12px;font-size:15px" href="student.html?lesson=${encodeURIComponent(LID)}">${esc(T("back"))}</a><button class="idt${lang === "id" ? " on" : ""}" id="lg" type="button">${lang === "id" ? "ID ✓" : "ID"}</button></header><main${wide ? ' class="wide"' : ""}>${inner}<div class="blw"><a class="btn bl" id="bl" href="student.html?lesson=${encodeURIComponent(LID)}">${esc(T("backL"))}</a></div></main>`;
+const shell = (inner, wide, sub) => {
+  const lessonHref = `student.html?lesson=${encodeURIComponent(LID)}`;
+  app.innerHTML = `<header><b>💬 ${esc(T("title"))}</b>${sub ? "" : `<a class="btn lo" style="padding:4px 12px;font-size:15px" href="${lessonHref}">${esc(T("back"))}</a>`}<button class="idt${lang === "id" ? " on" : ""}" id="lg" type="button">${lang === "id" ? "ID ✓" : "ID"}</button></header><main${wide ? ' class="wide"' : ""}>${inner}<div class="blw">${sub ? `<button class="btn bl" id="bl" type="button">${esc(T("backM"))}</button>` : `<a class="btn bl" id="bl" href="${lessonHref}">${esc(T("backL"))}</a>`}</div></main>`;
+  if (sub) document.getElementById("bl").onclick = () => { page = "menu"; showHome(); };
   document.getElementById("lg").onclick = () => { lang = lang === "id" ? "en" : "id"; localStorage.setItem("robotLang", lang); if (view) view(); };
 };
 const sortList = c => inCls(c).slice().sort((a, b) => { const x = parseFloat(a.no), y = parseFloat(b.no); if (!isNaN(x) && !isNaN(y) && x !== y) return x - y; const p = String(a.no), q = String(b.no); return p < q ? -1 : p > q ? 1 : 0; });
@@ -183,15 +185,14 @@ function showWho() {
 function showHome() {
   view = showHome; const me = find(ME.cls, ME.no);
   shell(`<div class="card"><h1>${esc(T("hi"))}, ${esc(me.name)}! 👋</h1><div>${esc((L && L.title) || SU.title || "")} • ${esc(me.cls)} • No ${esc(me.no)}</div>
-    <button class="lo" id="sw" style="margin-top:10px">${esc(T("notMe"))}</button></div><div id="body"></div>`, page === "gallery");
+    <button class="lo" id="sw" style="margin-top:10px">${esc(T("notMe"))}</button></div><div id="body"></div>`, page === "gallery", page !== "menu");
   document.getElementById("sw").onclick = () => {
     ME = null; ["fbMe_" + LID].forEach(k => localStorage.removeItem(k)); localStorage.removeItem("robotStudent"); sessionStorage.removeItem("robotStudent");
     location.href = "student.html?lesson=" + encodeURIComponent(LID);
   };
   const b = document.getElementById("body");
   if (page === "menu") return drawMenu(b);
-  b.insertAdjacentHTML("beforeend", `<button class="bm" id="bm">${esc(T("toMenu"))}</button><div id="pg"></div>`);
-  document.getElementById("bm").onclick = () => { page = "menu"; showHome(); };
+  b.insertAdjacentHTML("beforeend", `<div id="pg"></div>`);
   const pg = document.getElementById("pg");
   page === "gallery" ? drawGallery(pg) : page === "mine" ? drawMine(pg) : drawGive(pg);
 }
