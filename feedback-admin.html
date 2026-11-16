@@ -43,6 +43,9 @@ details{margin:6px 0}summary{cursor:pointer;font-weight:700}
     <h3>2️⃣ Pengaturan &amp; simpan</h3>
     <p class="hint">Pertanyaan feedback &amp; arahan untuk murid diatur di <b>CHALLENGES &gt; + Feedback</b> (bisa diterjemahkan otomatis). Di sini hanya data murid dan pengaturan nama pengirim.</p>
     <div class="row"><label class="ck"><input type="checkbox" id="showFrom"> Tampilkan nama pengirim ke penerima (kalau tidak dicentang: pengirim ditampilkan sebagai "Temanmu")</label></div>
+    <div class="row"><label class="ck"><input type="checkbox" id="gallery" checked> 🖼️ Aktifkan <b>Gallery Walk</b> (murid melihat semua project teman <u>sekelasnya</u>, hanya untuk dilihat)</label></div>
+    <div class="row" style="margin-left:28px"><label class="ck"><input type="checkbox" id="stars"> ⭐ Murid boleh memberi <b>bintang</b> di Gallery Walk. Token bintang per murid:</label><input type="number" id="tokens" min="1" max="50" value="5" style="width:70px;padding:6px 8px;border:2px solid #cfdcf3;border-radius:8px;font:inherit"><span class="hint">Satu project hanya bisa diberi 1 bintang oleh 1 murid, tidak bisa ke project sendiri, dan bintang boleh ditarik lalu dipindah.</span></div>
+    <div class="row"><label class="ck"><input type="checkbox" id="assignNext"> 🔁 Murid <b>hanya boleh</b> mengirim feedback ke teman dengan <b>absen berikutnya</b> (no 1 → no 2, dst; absen terakhir → absen pertama). Murid akan diberi tahu: "Kamu harus mengirim feedback ke temanmu: 02. Tia".</label></div>
     <div class="row"><button class="main" id="save" disabled>💾 SIMPAN KE SERVER</button><span id="saveMsg" class="hint"></span></div>
   </div>
 
@@ -57,6 +60,13 @@ details{margin:6px 0}summary{cursor:pointer;font-weight:700}
     <p class="hint">Guru bisa menyembunyikan feedback yang kurang pantas: buka Google Sheet, tab <b>Feedback</b>, ketik <b>x</b> di kolom <i>sembunyikan</i> pada baris itu. Feedback tersebut langsung hilang dari tampilan murid.</p>
     <div class="row"><button class="g" id="load">🔄 Muat feedback</button><a id="sheetLink" target="_blank" rel="noopener" style="color:#1B4F9C;font-weight:700">Buka Google Sheet ↗</a></div>
     <div id="rep"></div>
+  </div>
+
+  <div class="c">
+    <h3>⭐ Bintang Gallery Walk</h3>
+    <p class="hint">Jumlah bintang yang diterima tiap project (hanya guru yang melihat ini).</p>
+    <div class="row"><button class="g" id="loadStars">🔄 Muat bintang</button></div>
+    <div id="starRep"></div>
   </div>
 </div>
 
@@ -102,6 +112,12 @@ function parseRows(rows) {
 }
 //</parse>
 
+function readOpts() {
+  SET.gallery = $("gallery").checked; SET.stars = $("gallery").checked && $("stars").checked;
+  SET.starTokens = Math.max(1, Math.min(50, Math.floor(+$("tokens").value) || 5)); SET.assignNext = $("assignNext").checked;
+}
+function syncOpts() { $("stars").disabled = $("tokens").disabled = !$("gallery").checked; }
+$("gallery").onchange = syncOpts; syncOpts();
 const lab = p => esc(p.cls + " no " + p.no + " " + p.name);
 function renderInfo(R, fromServer) {
   const cls = []; R.projects.forEach(p => { if (!cls.includes(p.cls)) cls.push(p.cls); });
@@ -135,7 +151,7 @@ $("save").onclick = async e => {
   if (!SET.projects.length) return;
   const key = sessionStorage.getItem("adminKey") || prompt("Masukkan kunci admin:"); if (!key) return;
   const b = e.target; b.disabled = true; b.textContent = "Menyimpan…";
-  SET.prompt = ""; SET.showFrom = $("showFrom").checked;
+  SET.prompt = ""; SET.showFrom = $("showFrom").checked; readOpts();
   try {
     const r = await api("saveFbSetup", { key, lessonId: LS.id, lessonTitle: LS.title, setup: SET });
     if (!r.ok) throw new Error(r.error);
@@ -149,7 +165,7 @@ $("save").onclick = async e => {
 function showLink() {
   const u = new URL("feedback.html?lesson=" + encodeURIComponent(LS.id), location.href).href;
   $("lnk").value = u; $("linkBox").style.display = "";
-  $("hubNote").innerHTML = "Murid biasanya masuk lewat challenge <b>Feedback</b> di halaman lesson (tambahkan di CHALLENGES lalu RE-PUBLISH). Link ini juga bisa dibagikan langsung.";
+  $("hubNote").innerHTML = "Murid masuk lewat challenge <b>Feedback</b> di halaman lesson (tambahkan di CHALLENGES lalu RE-PUBLISH). Selama data murid sudah disimpan di sini, login murid di halaman lesson otomatis berupa <b>dropdown nama</b> (tidak perlu login dua kali). Link ini juga bisa dibagikan langsung.";
   $("cp").onclick = () => navigator.clipboard.writeText(u).then(() => { $("cp").textContent = "✓ TERSALIN"; setTimeout(() => $("cp").textContent = "COPY LINK", 1500); });
 }
 
@@ -177,11 +193,30 @@ function renderReport(rows) {
   $("rep").innerHTML = h;
 }
 
+$("loadStars").onclick = async e => {
+  const key = sessionStorage.getItem("adminKey") || prompt("Masukkan kunci admin:"); if (!key) return;
+  const b = e.target; b.disabled = true; b.textContent = "Memuat…";
+  try {
+    const r = await api("getStarsAll", { key, lessonId: LS.id });
+    if (!r.ok) throw new Error(r.error);
+    sessionStorage.setItem("adminKey", key);
+    const cnt = {}; r.rows.forEach(x => { const k = x[0] + "|" + x[4]; cnt[k] = (cnt[k] || 0) + 1; });
+    const cls = []; SET.projects.forEach(p => { if (!cls.includes(p.cls)) cls.push(p.cls); });
+    let h = `<div class="ok"><b>${r.rows.length}</b> bintang sudah diberikan.</div>`;
+    cls.forEach(c => {
+      const ps = SET.projects.filter(p => p.cls === c).map(p => ({ p, n: cnt[c + "|" + p.no] || 0 })).sort((a, z) => z.n - a.n);
+      h += `<details open><summary>${esc(c)}</summary><div class="tw"><table><tr><th>#</th><th>Nama</th><th>⭐</th></tr>${ps.map(x => `<tr><td>${esc(x.p.no)}</td><td>${esc(x.p.name)}</td><td>${x.n}</td></tr>`).join("")}</table></div></details>`;
+    });
+    $("starRep").innerHTML = h;
+  } catch (err) { alert("Gagal memuat: " + err.message); }
+  b.disabled = false; b.textContent = "🔄 Muat bintang";
+};
+
 // muat data yang sudah tersimpan di server (kalau ada)
 apiGet("getFbSetup", { id: LS.id }).then(r => {
   if (!r || !r.ok) return;
-  SET = { projects: r.setup.projects || [], prompt: r.setup.prompt || DEFAULT_PROMPT, showFrom: !!r.setup.showFrom };
-  $("showFrom").checked = SET.showFrom;
+  SET = { projects: r.setup.projects || [], prompt: r.setup.prompt || DEFAULT_PROMPT, showFrom: !!r.setup.showFrom, gallery: r.setup.gallery !== false, stars: !!r.setup.stars, starTokens: r.setup.starTokens || 5, assignNext: !!r.setup.assignNext };
+  $("showFrom").checked = SET.showFrom; $("gallery").checked = SET.gallery; $("stars").checked = SET.stars; $("tokens").value = SET.starTokens; $("assignNext").checked = SET.assignNext; syncOpts();
   renderInfo({ projects: SET.projects, skipped: [], noLink: SET.projects.filter(p => !p.url), notScratch: SET.projects.filter(p => p.url && !p.pid), dups: [], fixed: 0 }, true);
   $("saveMsg").textContent = "Mau ubah arahan/pengaturan: edit lalu simpan. Mau ganti data murid: upload Excel baru lalu simpan.";
   $("save").disabled = false; showLink();

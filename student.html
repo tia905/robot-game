@@ -91,7 +91,7 @@ const UI = {
   type: { en: "Type your answer", id: "Ketik jawabanmu" }, mytask: { en: "My task", id: "Tugasku" }, pickTask: { en: "Choose a task", id: "Pilih tugas" }, step: { en: "Step", id: "Langkah" }, addstep: { en: "+ Add step", id: "+ Tambah langkah" }, fill: { en: "Fill in your name and class first.", id: "Isi nama dan kelas dulu ya." },
   err: { en: "Lesson not found. Ask your teacher for a new link.", id: "Lesson tidak ditemukan. Minta link baru ke gurumu." }, load: { en: "Loading...", id: "Memuat..." },
   locked: { en: "Finish the previous challenge first 🔒", id: "Selesaikan challenge sebelumnya dulu 🔒" },
-  sw: { en: "Not you? Change name", id: "Bukan kamu? Ganti nama" }, retry: { en: "TRY AGAIN", id: "ULANGI" },
+  sw: { en: "Not you? Change name", id: "Bukan kamu? Ganti nama" }, pickName: { en: "Choose your name", id: "Pilih namamu" }, retry: { en: "TRY AGAIN", id: "ULANGI" },
   sure: { en: "Start this quiz again? Your old answers will be replaced.", id: "Ulangi quiz ini? Jawaban lama akan diganti." },
   retry2: { en: "Not quite. Try again! 💪", id: "Belum tepat. Coba lagi! 💪" }, chances: { en: "Chances left", id: "Sisa kesempatan" }, manual: { en: "Answer saved. Your teacher will check it ✅", id: "Jawaban tersimpan. Gurumu yang akan memeriksa ✅" }, bonus: { en: "bonus", id: "bonus" }
 };
@@ -379,7 +379,7 @@ async function init() {
     const n0 = document.getElementById("n"), k0 = document.getElementById("k"), nv = n0 ? n0.value : "", kv = k0 ? k0.value : "";
     begin();
     const n1 = document.getElementById("n"), k1 = document.getElementById("k");
-    if (n1 && nv) n1.value = nv; if (k1 && kv) k1.value = kv;
+    if (n1 && n1.tagName === "INPUT" && nv) n1.value = nv; if (k1 && kv && [...k1.options].some(o => o.value === kv || o.text === kv)) k1.value = kv;
   } catch (e) { shell(`<div class="card"><h2>${U("err")}</h2></div>`); }
 }
 // ---- progress tersimpan di browser (per murid: nama + kelas) ----
@@ -443,20 +443,50 @@ function resyncLocal() {
     });
   } catch (e) {}
 }
+// ---- DAFTAR MURID (dari Excel di halaman FEEDBACK admin) ----
+// Kalau lesson punya challenge Feedback DAN data murid sudah di-upload, login pakai dropdown (kelas -> nama).
+// Kalau tidak, login biasa: murid mengetik nama sendiri.
+let RO = null;
+const hasFB = () => (L.challenges || []).some(c => c.type === "feedback");
+async function loadRoster() {
+  RO = null;
+  if (!hasFB()) return;
+  const cached = readJ("fbSetup_" + LID);
+  try {
+    const r = await Promise.race([apiGet("getFbSetup", { id: LID }), new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 6000))]);
+    if (r && r.ok) { RO = r.setup; try { localStorage.setItem("fbSetup_" + LID, JSON.stringify(RO)); } catch (e) {} }
+  } catch (e) {}
+  if (!RO) RO = cached;
+  if (RO && !(RO.projects || []).length) RO = null;
+}
+const roClasses = () => { const a = []; RO.projects.forEach(p => { if (!a.includes(p.cls)) a.push(p.cls); }); return a; };
+const roNames = c => RO.projects.filter(p => p.cls === c).slice().sort((a, b) => (parseFloat(a.no) - parseFloat(b.no)) || String(a.no).localeCompare(String(b.no)));
 function begin() {
   // resyncLocal(); // DIMATIKAN: jangan tarik ulang progress lama dari browser, rekap hanya berisi data baru
-  if (!S || S.lesson !== LID || !S.name) { showLogin(); return; }
+  if (!S || S.lesson !== LID || !S.name) {
+    if (hasFB()) { shell(`<div class="card"><h2>⏳ ${U("load")}</h2></div>`, true); loadRoster().then(showLogin); } else { RO = null; showLogin(); }
+    return;
+  }
   history.replaceState(null, "", "student.html?lesson=" + encodeURIComponent(LID));
   showHub();
 }
 function showLogin() {
   view = showLogin;
+  const ro = !!RO;
+  const clsOpts = ro ? roClasses().map(c => `<option>${esc(c)}</option>`).join("") : CLASSES.map(c => `<option>${c}</option>`).join("");
   shell(`<div class="card login"><h1>${esc(L.title)}</h1><p>${esc(L.description || "")}</p>
-    <input id="n" data-ph="name" placeholder="${esc(plain("name"))}"><select id="k"><option value="" data-ph="cls">${esc(plain("cls"))}</option>${CLASSES.map(c => `<option>${c}</option>`).join("")}</select><button id="go">${U("start")}</button></div>`, true);
+    ${ro ? "" : `<input id="n" data-ph="name" placeholder="${esc(plain("name"))}">`}<select id="k"><option value="" data-ph="cls">${esc(plain("cls"))}</option>${clsOpts}</select>
+    ${ro ? `<select id="n" disabled><option value="" data-ph="pickName">${esc(plain("pickName"))}</option></select>` : ""}<button id="go">${U("start")}</button></div>`, true);
+  const k = document.getElementById("k"), n = document.getElementById("n");
+  if (ro) k.onchange = () => {
+    n.disabled = !k.value;
+    n.innerHTML = `<option value="" data-ph="pickName">${esc(plain("pickName"))}</option>` + (k.value ? roNames(k.value).map(p => `<option value="${esc(p.no)}">${esc(p.no)}. ${esc(p.name)}</option>`).join("") : "");
+  };
   document.getElementById("go").onclick = () => {
-    const n = document.getElementById("n").value.trim(), k = document.getElementById("k").value;
-    if (!n || !k) { alert(msg("fill")); return; }
-    S = { lesson: LID, name: n, cls: k }; save(); showHub();
+    if (!n.value.trim() || !k.value) { alert(msg("fill")); return; }
+    if (ro) { const p = RO.projects.find(x => x.cls === k.value && String(x.no) === n.value); if (!p) { alert(msg("fill")); return; } S = { lesson: LID, name: p.name, cls: p.cls, no: String(p.no) }; }
+    else S = { lesson: LID, name: n.value.trim(), cls: k.value };
+    save(); showHub();
   };
 }
 function showHub() {
@@ -466,7 +496,7 @@ function showHub() {
   const nextI = L.challenges.findIndex((_, k) => !st[k].done && !lockedAt(k));
   shell(`<div class="card"><h1>Hello, ${esc(S.name)}! 👋<small class="tr">Halo, ${esc(S.name)}!</small></h1><div>${esc(L.title)} • ${esc(S.cls)}</div><div class="bar"><i style="width:${got / n * 100}%"></i></div><button class="lo" id="lo" type="button">↩ ${esc(plain("sw"))}</button></div>
     <div class="mascot"><img src="assets/tunas-unggul.webp" alt="Tunas Unggul" width="100" height="110"><p>${T({ en: "Let's finish the missions! 🚀", id: "Ayo selesaikan misinya!" })}</p></div><div class="path">${L.challenges.map((c, i) => { const lk = lockedAt(i); return `<button class="node c${i % 3}${i === nextI ? " next" : ""}${lk ? " locked" : ""}" data-i="${i}"><span>${lk ? "🔒" : st[i].done ? "⭐" : c.type === "game" ? "🤖" : c.type === "feedback" ? "💬" : i + 1}</span>${esc(c.title)}<small>${st[i].txt}</small></button>`; }).join("")}</div>${got === n ? `<p class="done">🎉 ${U("all")}</p>` : ""}`, true);
-  document.getElementById("lo").onclick = () => { S = null; localStorage.removeItem("robotStudent"); sessionStorage.removeItem("robotStudent"); showLogin(); };
+  document.getElementById("lo").onclick = () => { S = null; localStorage.removeItem("robotStudent"); sessionStorage.removeItem("robotStudent"); localStorage.removeItem("fbMe_" + LID); begin(); };
   app.querySelectorAll(".node").forEach(b => b.onclick = () => {
     const i = +b.dataset.i, c = L.challenges[i];
     if (lockedAt(i)) { alert(msg("locked")); return; }
