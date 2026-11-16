@@ -82,6 +82,12 @@ function doGet(e) {
     if (json) return out_({ ok: true, lesson: JSON.parse(json) });
     return out_({ ok: false, error: "Lesson tidak ditemukan" });
   }
+  if (e.parameter.action === "getFbSetup") {
+    var sj = fbSetupJson_(e.parameter.id);
+    if (sj) return out_({ ok: true, setup: JSON.parse(sj) });
+    return out_({ ok: false, error: "Feedback belum dibuka untuk lesson ini" });
+  }
+  if (e.parameter.action === "getFbMine") return out_(fbMine_(e.parameter.id, e.parameter.cls, e.parameter.no));
   return out_({ ok: true });
 }
 
@@ -256,6 +262,49 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu("🤖 Robot Game").addItem("Hitung ulang semua nilai", "recomputeAll_").addToUi();
 }
 
+// ---- FEEDBACK TEMAN (peer feedback) ----
+// FeedbackSetup : 1 baris per lesson (daftar murid + link project + pengaturan) -> diisi dari halaman feedback-admin.html
+// Feedback      : 1 baris per (pengirim -> penerima). Kirim ulang = memperbarui baris yang sama.
+//                 Guru bisa menyembunyikan feedback dengan mengetik x di kolom "sembunyikan (isi x)".
+var FBS = "FeedbackSetup", FB = "Feedback";
+var FB_H = ["waktu", "lesson_id", "kelas_penerima", "no_penerima", "nama_penerima", "kelas_pengirim", "no_pengirim", "nama_pengirim", "feedback", "sembunyikan (isi x)"];
+function fbSetupJson_(id) {
+  var cache = CacheService.getScriptCache(), hit = cache.get("fbs_" + id);
+  if (hit) return hit;
+  var s = sheet_(FBS, ["id", "json", "updated"]), n = s.getLastRow();
+  if (n < 2) return null;
+  var v = s.getRange(2, 1, n - 1, 2).getValues();
+  for (var i = 0; i < v.length; i++) {
+    if (String(v[i][0]) === String(id)) {
+      var j = String(v[i][1]);
+      try { if (j.length < 90000) cache.put("fbs_" + id, j, 21600); } catch (err) {}
+      return j;
+    }
+  }
+  return null;
+}
+function fbFind_(projects, cls, no) {
+  cls = String(cls == null ? "" : cls).trim(); no = String(no == null ? "" : no).trim();
+  for (var i = 0; i < projects.length; i++) {
+    if (String(projects[i].cls).trim() === cls && String(projects[i].no).trim() === no) return projects[i];
+  }
+  return null;
+}
+function fbMine_(id, cls, no) {
+  var sj = fbSetupJson_(id);
+  if (!sj) return { ok: false, error: "Feedback belum dibuka untuk lesson ini" };
+  var setup = JSON.parse(sj), s = sheet_(FB, FB_H), n = s.getLastRow(), items = [];
+  if (n > 1) {
+    s.getRange(2, 1, n - 1, FB_H.length).getValues().forEach(function (r) {
+      if (String(r[1]) !== String(id) || String(r[2]).trim() !== String(cls || "").trim() || String(r[3]).trim() !== String(no || "").trim()) return;
+      if (String(r[9]).trim()) return; // disembunyikan guru
+      items.push({ t: r[0] instanceof Date ? r[0].toISOString() : String(r[0]), from: setup.showFrom ? String(r[7]) : "", text: String(r[8]) });
+    });
+  }
+  items.sort(function (a, b) { return a.t < b.t ? 1 : -1; });
+  return { ok: true, items: items };
+}
+
 function doPost(e) {
   var d = JSON.parse(e.postData.contents);
   if (d.action === "saveLesson") {
@@ -295,6 +344,57 @@ function doPost(e) {
     var vals = ls.getLastRow() > 1 ? ls.getRange(2, 1, ls.getLastRow() - 1, LOG_H.length).getValues() : [];
     vals.forEach(function (r) { if (r[0] instanceof Date) r[0] = r[0].toISOString(); });
     return out_({ ok: true, rows: vals });
+  }
+  if (d.action === "saveFbSetup") {
+    if (!admin_(d.key)) return out_({ ok: false, error: "Kunci admin salah" });
+    var setup = d.setup || {};
+    var sjson = JSON.stringify({ title: d.lessonTitle || "", prompt: String(setup.prompt || ""), showFrom: !!setup.showFrom, projects: setup.projects || [] });
+    if (sjson.length > 49000) return out_({ ok: false, error: "Data terlalu besar (maks sekitar 350 murid per lesson)" });
+    var fs = sheet_(FBS, ["id", "json", "updated"]), fr = fs.getDataRange().getValues(), frow = [String(d.lessonId), sjson, new Date()], saved = false;
+    for (var fi = 1; fi < fr.length; fi++) {
+      if (String(fr[fi][0]) === String(d.lessonId)) { fs.getRange(fi + 1, 1, 1, 3).setValues([frow]); saved = true; break; }
+    }
+    if (!saved) fs.appendRow(frow);
+    CacheService.getScriptCache().remove("fbs_" + d.lessonId);
+    return out_({ ok: true, count: (setup.projects || []).length });
+  }
+  if (d.action === "getFbAll") {
+    if (!admin_(d.key)) return out_({ ok: false, error: "Kunci admin salah" });
+    var as = sheet_(FB, FB_H), an = as.getLastRow(), rows = [];
+    if (an > 1) {
+      as.getRange(2, 1, an - 1, FB_H.length).getValues().forEach(function (r) {
+        if (String(r[1]) !== String(d.lessonId)) return;
+        if (r[0] instanceof Date) r[0] = r[0].toISOString();
+        rows.push(r);
+      });
+    }
+    return out_({ ok: true, rows: rows });
+  }
+  if (d.action === "sendFeedback") {
+    var fj = fbSetupJson_(d.lessonId);
+    if (!fj) return out_({ ok: false, error: "Feedback belum dibuka untuk lesson ini" });
+    var plist = JSON.parse(fj).projects || [];
+    var from = fbFind_(plist, d.from && d.from.cls, d.from && d.from.no), to = fbFind_(plist, d.to && d.to.cls, d.to && d.to.no);
+    var ftext = String(d.text || "").trim().slice(0, 600);
+    if (!from || !to) return out_({ ok: false, error: "Data murid tidak ditemukan" });
+    if (from === to) return out_({ ok: false, error: "Tidak bisa memberi feedback ke project sendiri" });
+    if (!ftext) return out_({ ok: false, error: "Feedback masih kosong" });
+    var flock = LockService.getScriptLock();
+    flock.waitLock(30000);
+    try {
+      var sh = sheet_(FB, FB_H), fn = sh.getLastRow(), at = -1;
+      if (fn > 1) {
+        var fv = sh.getRange(2, 1, fn - 1, 8).getValues();
+        for (var k = 0; k < fv.length; k++) {
+          var r = fv[k];
+          if (String(r[1]) === String(d.lessonId) && String(r[2]).trim() === String(to.cls).trim() && String(r[3]).trim() === String(to.no).trim() &&
+              String(r[5]).trim() === String(from.cls).trim() && String(r[6]).trim() === String(from.no).trim()) { at = k + 2; break; }
+        }
+      }
+      if (at > 0) { sh.getRange(at, 1).setValue(new Date()); sh.getRange(at, 9).setValue(t_(ftext)); }
+      else sh.appendRow([new Date(), t_(d.lessonId), t_(to.cls), t_(to.no), t_(to.name), t_(from.cls), t_(from.no), t_(from.name), t_(ftext), ""]);
+    } finally { flock.releaseLock(); }
+    return out_({ ok: true });
   }
   if (d.action === "submit") {
     var lock = LockService.getScriptLock();

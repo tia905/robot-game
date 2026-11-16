@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feedback Teman – Admin</title>
+<style>
+:root{--o:#E8832A;--g:#3FA535;--b:#1B4F9C;--n:#0F2F6B}
+*{box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#f4f7fd;margin:0;color:var(--n)}
+.top{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;padding:10px 20px;background:#fff;border-bottom:4px solid var(--o)}
+.top h2{flex:1;margin:0;font-size:18px}.top a{color:var(--b);font-weight:700;text-decoration:none}
+.w{max-width:960px;margin:0 auto;padding:16px}
+.c{background:#fff;border-radius:16px;padding:16px;margin:14px 0;box-shadow:0 2px 10px #0f2f6b14;border-top:5px solid var(--b)}
+.c h3{margin:0 0 6px;font-size:17px}
+.hint{color:#5b6b8c;font-size:13px;margin:4px 0 10px;line-height:1.5}
+button{padding:8px 14px;border:0;border-radius:8px;background:var(--b);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+button.main{background:var(--o)}button.g{background:var(--g)}button[disabled]{opacity:.4;cursor:not-allowed}
+textarea,input[type=text]{width:100%;padding:8px 10px;border:2px solid #cfdcf3;border-radius:8px;font:inherit}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.ck{display:flex;gap:8px;align-items:center;background:#e6f7e3;padding:6px 10px;border-radius:8px;font-weight:600}.ck input{width:20px;height:20px}
+.warn{background:#fff8e1;border:2px dashed var(--o);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px;line-height:1.55}
+.ok{background:#e6f7e3;border:2px solid #b7e2b0;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0}th,td{border:1px solid #dde6f7;padding:5px 8px;text-align:left;vertical-align:top}th{background:#eef3fc}
+details{margin:6px 0}summary{cursor:pointer;font-weight:700}
+.share{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.share input{flex:1;min-width:220px}
+.pill{display:inline-block;background:#e6edfa;border-radius:20px;padding:2px 10px;margin:2px;font-size:13px}
+.tw{max-height:420px;overflow:auto}
+</style>
+</head>
+<body>
+<div class="top"><a href="admin.html">← Kembali</a><h2 id="t">Feedback teman</h2></div>
+<div class="w">
+
+  <div class="c">
+    <h3>1️⃣ Upload data Excel</h3>
+    <p class="hint">Kolom yang dibaca: <b>No absen</b> | <b>Kelas</b> | <b>Nama</b> | <b>Project</b> (link Scratch). Satu file boleh berisi beberapa kelas sekaligus. Upload ulang = data lama untuk lesson ini diganti.</p>
+    <input type="file" id="f" accept=".xlsx,.xls,.csv">
+    <div id="info"></div>
+  </div>
+
+  <div class="c">
+    <h3>2️⃣ Pengaturan &amp; simpan</h3>
+    <p class="hint">Kalimat arahan yang muncul di atas kotak feedback murid:</p>
+    <textarea id="prompt" rows="3"></textarea>
+    <div class="row"><label class="ck"><input type="checkbox" id="showFrom"> Tampilkan nama pengirim ke penerima (kalau tidak dicentang: pengirim ditampilkan sebagai "Temanmu")</label></div>
+    <div class="row"><button class="main" id="save" disabled>💾 SIMPAN KE SERVER</button><span id="saveMsg" class="hint"></span></div>
+  </div>
+
+  <div class="c" id="linkBox" style="display:none">
+    <h3>3️⃣ Link untuk murid</h3>
+    <div class="share"><input type="text" id="lnk" readonly onclick="this.select()"><button id="cp">COPY LINK</button></div>
+    <p class="hint" id="hubNote"></p>
+  </div>
+
+  <div class="c">
+    <h3>📬 Feedback yang sudah masuk</h3>
+    <p class="hint">Guru bisa menyembunyikan feedback yang kurang pantas: buka Google Sheet, tab <b>Feedback</b>, ketik <b>x</b> di kolom <i>sembunyikan</i> pada baris itu. Feedback tersebut langsung hilang dari tampilan murid.</p>
+    <div class="row"><button class="g" id="load">🔄 Muat feedback</button><a id="sheetLink" target="_blank" rel="noopener" style="color:#1B4F9C;font-weight:700">Buka Google Sheet ↗</a></div>
+    <div id="rep"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="api.js"></script>
+<script>
+const LID = new URLSearchParams(location.search).get("lesson");
+const lessons = JSON.parse(localStorage.getItem("robotLessons")) || [];
+const LS = lessons.find(x => String(x.id) === LID);
+if (!LS) { alert("Lesson tidak ditemukan"); location.href = "admin.html"; }
+const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const $ = id => document.getElementById(id);
+const DEFAULT_PROMPT = "Coba project temanmu. Tulis 1 saran yang spesifik dan sopan supaya project-nya jadi lebih baik. Contoh: \"Tambahkan suara saat tombol diklik\" lebih membantu daripada \"Bagus\".";
+$("t").textContent = "Feedback teman — " + LS.title;
+$("prompt").value = DEFAULT_PROMPT;
+$("sheetLink").href = typeof SHEET_URL === "string" ? SHEET_URL : "#";
+let SET = { projects: [], prompt: DEFAULT_PROMPT, showFrom: false };
+
+//<parse>
+const nk = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+const MAP = { no: ["no", "noabsen", "absen", "nomor", "nomorabsen"], cls: ["kelas", "class"], name: ["nama", "name", "namasiswa"], url: ["project", "link", "linkproject", "url", "projectlink", "linkscratch"] };
+function pick(r, f) { for (const k of Object.keys(r)) if (MAP[f].includes(nk(k))) return String(r[k] == null ? "" : r[k]).trim(); return ""; }
+function normUrl(u) {
+  u = String(u || "").trim();
+  const m = u.match(/scratch\.mit\.edu\/projects\/(\d+)/i);
+  return m ? { url: "https://scratch.mit.edu/projects/" + m[1], pid: m[1] } : { url: u, pid: "" };
+}
+function parseRows(rows) {
+  const projects = [], skipped = [], seen = {};
+  rows.forEach((r, i) => {
+    const no = pick(r, "no"), cls = pick(r, "cls"), name = pick(r, "name"), raw = pick(r, "url");
+    if (!no && !cls && !name && !raw) return; // baris kosong
+    if (!no || !cls || !name) { skipped.push("baris " + (i + 2) + " (No absen / Kelas / Nama belum lengkap)"); return; }
+    const key = cls + "|" + no;
+    if (seen[key]) { skipped.push("baris " + (i + 2) + ": " + cls + " no " + no + " dobel"); return; }
+    seen[key] = 1;
+    const n = normUrl(raw);
+    projects.push({ no, cls, name, url: n.url, pid: n.pid, changed: !!raw && n.pid && raw.replace(/\s+$/, "") !== n.url });
+  });
+  const noLink = projects.filter(p => !p.url), notScratch = projects.filter(p => p.url && !p.pid), byUrl = {};
+  projects.forEach(p => { if (p.url) (byUrl[p.url] = byUrl[p.url] || []).push(p); });
+  const dups = Object.keys(byUrl).filter(u => byUrl[u].length > 1).map(u => byUrl[u]);
+  return { projects, skipped, noLink, notScratch, dups, fixed: projects.filter(p => p.changed).length };
+}
+//</parse>
+
+const lab = p => esc(p.cls + " no " + p.no + " " + p.name);
+function renderInfo(R, fromServer) {
+  const cls = []; R.projects.forEach(p => { if (!cls.includes(p.cls)) cls.push(p.cls); });
+  let h = `<div class="ok">${fromServer ? "Tersimpan di server" : "Terbaca dari file"}: <b>${R.projects.length} murid</b> di <b>${cls.length} kelas</b> (${cls.map(esc).join(", ")}).</div>`;
+  if (R.skipped && R.skipped.length) h += `<div class="warn">⚠️ Dilewati: ${R.skipped.map(esc).join("; ")}</div>`;
+  if (R.noLink.length) h += `<div class="warn">⚠️ <b>Belum ada link</b> (murid akan melihat "belum mengumpulkan"): ${R.noLink.map(lab).join("; ")}</div>`;
+  if (R.dups.length) h += `<div class="warn">⚠️ <b>Link sama dipakai lebih dari satu murid</b> (mungkin salah salin): ${R.dups.map(g => g.map(lab).join(" = ")).join("; ")}</div>`;
+  if (R.notScratch.length) h += `<div class="warn">ℹ️ <b>Bukan link Scratch</b> (tidak bisa dibuka di dalam halaman, murid dapat tombol "Buka di tab baru"): ${R.notScratch.map(p => lab(p) + " → " + esc(p.url)).join("; ")}</div>`;
+  if (R.fixed) h += `<div class="ok">✨ ${R.fixed} link dirapikan otomatis (akhiran /editor, spasi, atau garis miring dibuang).</div>`;
+  cls.forEach(c => {
+    const ps = R.projects.filter(p => p.cls === c);
+    h += `<details><summary>${esc(c)} — ${ps.length} murid</summary><div class="tw"><table><tr><th>No</th><th>Nama</th><th>Link</th></tr>${ps.map(p => `<tr><td>${esc(p.no)}</td><td>${esc(p.name)}</td><td>${p.url ? esc(p.url) : "<i>(kosong)</i>"}</td></tr>`).join("")}</table></div></details>`;
+  });
+  $("info").innerHTML = h;
+}
+
+$("f").onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" }), ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false });
+    const R = parseRows(rows);
+    if (!R.projects.length) { $("info").innerHTML = `<div class="warn">Tidak ada data terbaca. Pastikan baris pertama berisi: No absen, Kelas, Nama, Project.</div>`; return; }
+    SET.projects = R.projects.map(p => ({ no: p.no, cls: p.cls, name: p.name, url: p.url, pid: p.pid }));
+    renderInfo(R, false);
+    $("save").disabled = false; $("saveMsg").textContent = "Belum disimpan — tekan tombol di samping.";
+  } catch (err) { alert("Gagal membaca file: " + err.message); }
+};
+
+$("save").onclick = async e => {
+  if (!SET.projects.length) return;
+  const key = sessionStorage.getItem("adminKey") || prompt("Masukkan kunci admin:"); if (!key) return;
+  const b = e.target; b.disabled = true; b.textContent = "Menyimpan…";
+  SET.prompt = $("prompt").value.trim() || DEFAULT_PROMPT; SET.showFrom = $("showFrom").checked;
+  try {
+    const r = await api("saveFbSetup", { key, lessonId: LS.id, lessonTitle: LS.title, setup: SET });
+    if (!r.ok) throw new Error(r.error);
+    sessionStorage.setItem("adminKey", key);
+    LS.feedback = true; localStorage.setItem("robotLessons", JSON.stringify(lessons));
+    $("saveMsg").textContent = "✅ Tersimpan (" + r.count + " murid).";
+    showLink();
+  } catch (err) { alert("Gagal menyimpan: " + err.message); }
+  b.disabled = false; b.textContent = "💾 SIMPAN KE SERVER";
+};
+
+function showLink() {
+  const u = new URL("feedback.html?lesson=" + encodeURIComponent(LS.id), location.href).href;
+  $("lnk").value = u; $("linkBox").style.display = "";
+  $("hubNote").innerHTML = "Murid bisa membuka link ini langsung. Supaya tombol <b>💬 Feedback Teman</b> juga muncul di halaman lesson murid, kembali ke dashboard lalu tekan <b>RE-PUBLISH</b> pada lesson ini.";
+  $("cp").onclick = () => navigator.clipboard.writeText(u).then(() => { $("cp").textContent = "✓ TERSALIN"; setTimeout(() => $("cp").textContent = "COPY LINK", 1500); });
+}
+
+$("load").onclick = async e => {
+  const key = sessionStorage.getItem("adminKey") || prompt("Masukkan kunci admin:"); if (!key) return;
+  const b = e.target; b.disabled = true; b.textContent = "Memuat…";
+  try {
+    const r = await api("getFbAll", { key, lessonId: LS.id });
+    if (!r.ok) throw new Error(r.error);
+    sessionStorage.setItem("adminKey", key);
+    renderReport(r.rows);
+  } catch (err) { alert("Gagal memuat: " + err.message); }
+  b.disabled = false; b.textContent = "🔄 Muat feedback";
+};
+function renderReport(rows) {
+  const vis = rows.filter(r => !String(r[9] || "").trim());
+  const gave = {}, got = {};
+  vis.forEach(r => { gave[r[5] + "|" + r[6]] = (gave[r[5] + "|" + r[6]] || 0) + 1; got[r[2] + "|" + r[3]] = (got[r[2] + "|" + r[3]] || 0) + 1; });
+  const P = SET.projects;
+  const noGive = P.filter(p => !gave[p.cls + "|" + p.no]), noGet = P.filter(p => !got[p.cls + "|" + p.no]);
+  const pills = a => a.length ? a.map(p => `<span class="pill">${esc(p.cls)} ${esc(p.no)}. ${esc(p.name)}</span>`).join("") : "<i>semua sudah ✅</i>";
+  let h = `<div class="ok"><b>${rows.length}</b> feedback masuk${rows.length !== vis.length ? ` (${rows.length - vis.length} disembunyikan)` : ""}.</div>`;
+  if (P.length) h += `<details><summary>Belum memberi feedback (${noGive.length})</summary>${pills(noGive)}</details><details><summary>Belum menerima feedback (${noGet.length})</summary>${pills(noGet)}</details>`;
+  h += `<div class="tw"><table><tr><th>Untuk</th><th>Dari</th><th>Feedback</th><th>Waktu</th></tr>${rows.slice().reverse().map(r => `<tr style="${String(r[9] || "").trim() ? "opacity:.45" : ""}"><td>${esc(r[2])} ${esc(r[3])}. ${esc(r[4])}</td><td>${esc(r[5])} ${esc(r[6])}. ${esc(r[7])}</td><td>${esc(r[8])}</td><td>${esc(new Date(r[0]).toLocaleString("id-ID"))}</td></tr>`).join("")}</table></div>`;
+  $("rep").innerHTML = h;
+}
+
+// muat data yang sudah tersimpan di server (kalau ada)
+apiGet("getFbSetup", { id: LS.id }).then(r => {
+  if (!r || !r.ok) return;
+  SET = { projects: r.setup.projects || [], prompt: r.setup.prompt || DEFAULT_PROMPT, showFrom: !!r.setup.showFrom };
+  $("prompt").value = SET.prompt; $("showFrom").checked = SET.showFrom;
+  renderInfo({ projects: SET.projects, skipped: [], noLink: SET.projects.filter(p => !p.url), notScratch: SET.projects.filter(p => p.url && !p.pid), dups: [], fixed: 0 }, true);
+  $("saveMsg").textContent = "Mau ubah arahan/pengaturan: edit lalu simpan. Mau ganti data murid: upload Excel baru lalu simpan.";
+  $("save").disabled = false; showLink();
+}).catch(() => {});
+</script>
+</body>
+</html>

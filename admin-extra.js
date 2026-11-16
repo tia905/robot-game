@@ -12,6 +12,7 @@ renderLessons = function () {
         }
         card.querySelector(".lesson-actions").insertAdjacentHTML("beforeend",
             `<button class="small-button x-ch" data-i="${i}">CHALLENGES</button>` +
+            `<button class="small-button x-fb" data-i="${i}">FEEDBACK</button>` +
             `<button class="small-button x-pub" data-i="${i}">${l.status === "published" ? "RE-PUBLISH" : "PUBLISH"}</button>` +
             `<button class="small-button x-res" data-i="${i}">RESULTS</button>`);
     });
@@ -23,6 +24,7 @@ lessonList.addEventListener("click", e => {
     const l = lessons[b.dataset.i];
     if (b.classList.contains("x-res")) location.href = "results.html?lesson=" + encodeURIComponent(l.id);
     if (b.classList.contains("x-ch")) location.href = "challenges.html?lesson=" + encodeURIComponent(l.id);
+    if (b.classList.contains("x-fb")) location.href = "feedback-admin.html?lesson=" + encodeURIComponent(l.id);
     if (b.classList.contains("x-pub")) publish(l);
 });
 

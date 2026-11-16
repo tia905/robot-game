@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Feedback Teman</title>
+<link rel="preconnect" href="https://script.google.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" media="print" onload="this.media='all'">
+<style>
+:root{--o:#E8832A;--g:#3FA535;--b:#1B4F9C;--n:#0F2F6B;--bg:#FFF8EC}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Baloo 2",system-ui,sans-serif;background:var(--bg);color:var(--n);min-height:100vh;background-image:radial-gradient(#f3c98b66 2px,transparent 2px);background-size:26px 26px}
+header{display:flex;align-items:center;gap:10px;padding:8px 16px;background:#fff;border-bottom:5px solid var(--o)}
+header b{flex:1;font-size:20px}
+main{max-width:760px;margin:0 auto;padding:18px}
+button,.btn{font-family:inherit;border:0;border-radius:16px;padding:10px 18px;font-size:18px;font-weight:700;cursor:pointer;color:#fff;background:var(--b);box-shadow:0 4px 0 #0f2f6b55;text-decoration:none;display:inline-block}
+button:active{transform:translateY(3px);box-shadow:none}button[disabled]{opacity:.45;cursor:not-allowed}
+.go{width:100%;background:var(--o);box-shadow:0 4px 0 #a85a14;margin-top:6px}
+.lo{padding:4px 12px;font-size:15px;background:#fff;color:var(--n);border:3px solid var(--n);box-shadow:none}
+.card{background:#fff;border-radius:24px;padding:22px;box-shadow:0 5px 0 #0f2f6b18;border:4px solid #ffe2bd;margin-bottom:14px}
+h1,h2{margin:0 0 8px}small{opacity:.7}
+select{font-family:inherit;font-size:18px;padding:10px 12px;border:3px solid #cfdcf3;border-radius:14px;width:100%;margin:6px 0 12px;background:#fff;color:var(--n)}
+label.l{font-weight:800;display:block;margin-top:4px}
+.tabs{display:flex;gap:8px;margin:12px 0}.tabs button{flex:1;background:#fff;color:var(--n);border:3px solid var(--n);box-shadow:none;font-size:17px}.tabs button.on{background:var(--b);color:#fff;border-color:var(--b)}
+.fbk{background:#f7f9ff;border:3px solid #dbe4f5;border-radius:16px;padding:12px 14px;margin:10px 0}.fbk p{margin:4px 0 0;white-space:pre-wrap;word-break:break-word;font-size:18px}.fbk small{font-weight:700}
+.empty{text-align:center;padding:20px;opacity:.8}
+.msg{font-weight:800;margin:8px 0}.msg.good{color:var(--g)}.msg.bad{color:#d03a30}
+/* ---- viewer layar penuh ---- */
+.vw{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--n);z-index:50}
+.vt{display:flex;align-items:center;gap:8px;padding:6px 10px;padding-top:max(6px,env(safe-area-inset-top));background:#fff;border-bottom:4px solid var(--o)}
+.vt b{flex:1;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vt button,.vt .btn{padding:6px 12px;font-size:15px;border-radius:12px}
+.vt .alt{background:#fff;color:var(--n);border:3px solid var(--n);box-shadow:none}
+.vb{flex:1;display:flex;min-height:0}
+.stage{flex:1;background:#111;position:relative;min-width:0;display:flex;align-items:center;justify-content:center}
+.stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.nop{max-width:420px;text-align:center;color:#fff;padding:20px}.nop h2{color:#fff}.nop .btn{background:var(--o);box-shadow:0 4px 0 #a85a14}
+.pn{width:340px;flex:none;background:#fff;padding:14px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:max(14px,env(safe-area-inset-bottom))}
+.pn p{margin:0;font-size:15px;line-height:1.35}
+.pn textarea{font-family:inherit;font-size:18px;padding:10px 12px;border:3px solid #cfdcf3;border-radius:14px;width:100%;min-height:150px;resize:vertical;color:var(--n)}
+.pn .cnt{font-size:13px;opacity:.65;text-align:right}
+.mob{display:none}
+@media(max-width:800px){.vb{flex-direction:column}.pn{width:auto;max-height:46vh}.pn.min{display:none}.mob{display:inline-block}.pn textarea{min-height:90px}}
+.cf{position:fixed;top:-30px;font-size:30px;pointer-events:none;z-index:99;animation:fall 2s linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="api.js"></script>
+<script>
+const P = new URLSearchParams(location.search), LID = P.get("lesson"), app = document.getElementById("app");
+const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const readJ = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
+const writeJ = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const K = (cls, no) => cls + "|" + no;
+let SU = null, ME = readJ("fbMe_" + LID), GIVEN = readJ("fbGiven_" + LID) || {}, tab = "give", pickCls = "";
+
+const shell = inner => { app.innerHTML = `<header><b>💬 Feedback Teman</b></header><main>${inner}</main>`; };
+const classes = () => { const a = []; SU.projects.forEach(p => { if (!a.includes(p.cls)) a.push(p.cls); }); return a; };
+const inCls = c => SU.projects.filter(p => p.cls === c);
+const find = (c, n) => SU.projects.find(p => p.cls === c && String(p.no) === String(n));
+const opts = (c, selNo, forGive) => inCls(c).map(p => {
+  const me = ME && p.cls === ME.cls && String(p.no) === String(ME.no), done = forGive && GIVEN[K(p.cls, p.no)];
+  return `<option value="${esc(p.no)}"${String(p.no) === String(selNo) ? " selected" : ""}${me && forGive ? " disabled" : ""}>${esc(p.no)}. ${esc(p.name)}${me && forGive ? " (kamu)" : ""}${done ? " ✓" : ""}</option>`;
+}).join("");
+
+async function init() {
+  if (!LID) { shell(`<div class="card"><h2>Link tidak valid</h2></div>`); return; }
+  shell(`<div class="card empty"><h1>⏳</h1>Memuat...</div>`);
+  try {
+    const r = await apiGet("getFbSetup", { id: LID });
+    if (!r.ok) throw new Error(r.error || "x");
+    SU = r.setup; writeJ("fbSetup_" + LID, SU);
+  } catch (e) {
+    SU = readJ("fbSetup_" + LID);
+    if (!SU) { shell(`<div class="card"><h2>Feedback belum dibuka 🙈</h2><p>Minta link baru ke gurumu, atau coba lagi nanti.</p></div>`); return; }
+  }
+  if (ME && !find(ME.cls, ME.no)) { ME = null; localStorage.removeItem("fbMe_" + LID); }
+  ME ? showHome() : showWho();
+}
+
+function showWho() {
+  const cl = classes();
+  shell(`<div class="card"><h1>Halo! 👋</h1><p>Pilih kelas dan namamu dulu ya.</p>
+    <label class="l">Kelas</label><select id="k"><option value="">— pilih kelas —</option>${cl.map(c => `<option>${esc(c)}</option>`).join("")}</select>
+    <label class="l">Nomor absen &amp; nama</label><select id="n" disabled><option value="">— pilih nama —</option></select>
+    <button class="go" id="go">MULAI</button></div>`);
+  const k = document.getElementById("k"), n = document.getElementById("n");
+  k.onchange = () => { n.disabled = !k.value; n.innerHTML = `<option value="">— pilih nama —</option>` + (k.value ? opts(k.value, "", false) : ""); };
+  document.getElementById("go").onclick = () => {
+    if (!k.value || !n.value) { alert("Pilih kelas dan namamu dulu ya."); return; }
+    ME = { cls: k.value, no: n.value }; writeJ("fbMe_" + LID, ME); pickCls = ""; showHome();
+  };
+}
+
+function showHome() {
+  const me = find(ME.cls, ME.no); pickCls = pickCls || ME.cls;
+  shell(`<div class="card"><h1>Hai, ${esc(me.name)}! 👋</h1><div>${esc(SU.title || "")} • ${esc(me.cls)} • No ${esc(me.no)}</div>
+    <button class="lo" id="sw" style="margin-top:10px">↩ Bukan kamu? Ganti</button></div>
+    <div class="tabs"><button id="t1" class="${tab === "give" ? "on" : ""}">✍️ Beri feedback</button><button id="t2" class="${tab === "mine" ? "on" : ""}">📬 Untukku</button></div><div id="body"></div>`);
+  document.getElementById("sw").onclick = () => { ME = null; localStorage.removeItem("fbMe_" + LID); showWho(); };
+  document.getElementById("t1").onclick = () => { tab = "give"; showHome(); };
+  document.getElementById("t2").onclick = () => { tab = "mine"; showHome(); };
+  tab === "give" ? drawGive() : drawMine();
+}
+
+function drawGive() {
+  const b = document.getElementById("body"), cl = classes();
+  b.innerHTML = `<div class="card"><h2>Pilih project temanmu</h2>
+    <label class="l">Kelas</label><select id="k">${cl.map(c => `<option${c === pickCls ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
+    <label class="l">Nomor absen &amp; nama</label><select id="n"><option value="">— pilih nama —</option>${opts(pickCls, "", true)}</select>
+    <button class="go" id="open" disabled>▶ BUKA PROJECT</button><p><small>Tanda ✓ = kamu sudah memberi feedback ke teman itu.</small></p></div>`;
+  const k = document.getElementById("k"), n = document.getElementById("n"), o = document.getElementById("open");
+  k.onchange = () => { pickCls = k.value; n.innerHTML = `<option value="">— pilih nama —</option>` + opts(pickCls, "", true); o.disabled = true; };
+  n.onchange = () => { o.disabled = !n.value; };
+  o.onclick = () => openProject(find(pickCls, n.value));
+}
+
+async function drawMine() {
+  const b = document.getElementById("body");
+  b.innerHTML = `<div class="card"><h2>Feedback untuk project-mu</h2><div id="lst" class="empty">⏳ Memuat...</div><button class="lo" id="rf" style="margin-top:8px">🔄 Muat ulang</button></div>`;
+  document.getElementById("rf").onclick = drawMine;
+  const box = document.getElementById("lst");
+  try {
+    const r = await apiGet("getFbMine", { id: LID, cls: ME.cls, no: ME.no });
+    if (!r.ok) throw new Error(r.error);
+    box.className = "";
+    box.innerHTML = r.items.length ? r.items.map(i => `<div class="fbk"><small>💬 ${esc(i.from || "Temanmu")} • ${esc(new Date(i.t).toLocaleDateString("id-ID", { day: "numeric", month: "short" }))}</small><p>${esc(i.text)}</p></div>`).join("")
+      : `<p>Belum ada feedback. Sabar ya, nanti temanmu akan menulisnya 😊</p>`;
+  } catch (e) { box.className = "msg bad"; box.textContent = "Belum bisa memuat. Periksa internet lalu tekan Muat ulang."; }
+}
+
+function openProject(p) {
+  const me = find(ME.cls, ME.no), key = K(p.cls, p.no), prev = GIVEN[key] || "";
+  const stage = p.pid
+    ? `<iframe src="https://scratch.mit.edu/projects/${esc(p.pid)}/embed" allowfullscreen allow="fullscreen; autoplay" loading="eager"></iframe>`
+    : p.url ? `<div class="nop"><h2>Project ini tidak bisa dibuka di dalam halaman 🌐</h2><p>Buka di tab baru, lalu kembali ke sini untuk menulis feedback.</p><a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">Buka project ↗</a></div>`
+      : `<div class="nop"><h2>${esc(p.name)} belum mengumpulkan project 🙈</h2><p>Pilih teman yang lain dulu ya.</p></div>`;
+  app.innerHTML = `<div class="vw"><div class="vt"><button id="bk">←</button><b>${esc(p.no)}. ${esc(p.name)} • ${esc(p.cls)}</b>
+      ${p.pid ? `<button class="alt" id="fs">⛶ Layar penuh</button><a class="btn alt" href="${esc(p.url)}" target="_blank" rel="noopener" title="Buka di tab baru">↗</a>` : ""}<button class="mob" id="tg">💬</button></div>
+    <div class="vb"><div class="stage" id="stage">${stage}</div>
+    <aside class="pn" id="pn"><h2 style="font-size:20px">Feedback untuk ${esc(p.name)}</h2><p>${esc(SU.prompt || "Tulis 1 saran yang spesifik dan sopan.")}</p>
+      <textarea id="ta" maxlength="600" placeholder="Tulis feedback-mu di sini...">${esc(prev)}</textarea><div class="cnt"><span id="cn">0</span>/600</div>
+      <div class="msg" id="st"></div><button class="go" id="send">${prev ? "✏️ PERBARUI FEEDBACK" : "📨 KIRIM FEEDBACK"}</button></aside></div></div>`;
+  const ta = document.getElementById("ta"), st = document.getElementById("st"), btn = document.getElementById("send"), pn = document.getElementById("pn"), cn = document.getElementById("cn");
+  const count = () => { cn.textContent = ta.value.length; }; count(); ta.oninput = count;
+  document.getElementById("bk").onclick = () => { if (ta.value.trim() && ta.value.trim() !== (GIVEN[key] || "") && !confirm("Feedback-mu belum dikirim. Tetap kembali?")) return; showHome(); };
+  const fs = document.getElementById("fs");
+  if (fs) fs.onclick = () => { const s = document.getElementById("stage"); (s.requestFullscreen || s.webkitRequestFullscreen || function () { alert("Layar penuh tidak didukung di perangkat ini. Pakai tombol ↗ untuk membuka di tab baru."); }).call(s); };
+  const tg = document.getElementById("tg"); if (tg) tg.onclick = () => pn.classList.toggle("min");
+  btn.onclick = async () => {
+    const t = ta.value.trim();
+    if (t.length < 8) { st.className = "msg bad"; st.textContent = "Tulis sedikit lebih lengkap ya (minimal 8 huruf)."; return; }
+    btn.disabled = true; st.className = "msg"; st.textContent = "Mengirim...";
+    let r = null;
+    for (let i = 0; i < 3 && !(r && r.ok); i++) {
+      try { r = await api("sendFeedback", { lessonId: LID, from: { cls: me.cls, no: me.no, name: me.name }, to: { cls: p.cls, no: p.no, name: p.name }, text: t }); if (r && r.ok === false && r.error) break; }
+      catch (e) { await new Promise(ok => setTimeout(ok, 1500 * (i + 1))); }
+    }
+    btn.disabled = false;
+    if (r && r.ok) { GIVEN[key] = t; writeJ("fbGiven_" + LID, GIVEN); st.className = "msg good"; st.textContent = "Terkirim! Terima kasih 🎉"; btn.textContent = "✏️ PERBARUI FEEDBACK"; confetti(); }
+    else { st.className = "msg bad"; st.textContent = r && r.error ? r.error : "Belum terkirim. Periksa internet lalu coba lagi."; }
+  };
+}
+function confetti() { const e = ["⭐", "🎉", "✨", "🌟", "🎈"]; for (let i = 0; i < 24; i++) { const s = document.createElement("span"); s.className = "cf"; s.textContent = e[i % 5]; s.style.left = Math.random() * 100 + "vw"; s.style.animationDelay = Math.random() * .4 + "s"; document.body.appendChild(s); setTimeout(() => s.remove(), 2800); } }
+init();
+</script>
+</body>
+</html>
