@@ -2,14 +2,16 @@
 // lalu Deploy > Manage deployments > Edit (ikon pensil) > Version: "New version" > Deploy.
 // Project Settings > Script properties: ADMIN_KEY = kata sandi admin pilihanmu.
 //
-// Sheet yang dipakai:
-//   Lessons : data lesson (otomatis)
-//   Jawaban : REKAP -> 1 murid = 1 baris (nama + kelas + lesson). Jawaban baru menimpa kolom yang sama, tidak bikin baris baru.
-//   Log     : catatan mentah semua jawaban (dipakai halaman Results). Boleh disembunyikan.
-// Sheet "Jawaban" lama (1 jawaban = 1 baris) otomatis di-rename jadi "Jawaban_lama" dan datanya
-// dipindah ke "Log" sekali saja.
+// Sheet yang dipakai (rekap dipisah PER LESSON, nama tab: "<jenis> - <judul lesson>"):
+//   Lessons                    : data lesson (otomatis)
+//   Rekap - <lesson>           : REKAP jawaban -> 1 murid = 1 baris. Jawaban baru menimpa kolom yang sama.
+//   Feedback - <lesson>        : feedback teman untuk lesson itu saja
+//   Bintang - <lesson>         : data mentah bintang Gallery Walk lesson itu
+//   Rekap Bintang - <lesson>   : analisis + peringkat + chart untuk guru (diperbarui dari halaman Feedback admin)
+//   Log                        : catatan mentah semua jawaban (dipakai halaman Results). Boleh disembunyikan.
+// Tab hanya dibuat saat ada data baru untuk lesson itu; data lama tidak dipindah / direkap ulang.
 
-var REKAP = "Jawaban", LOG = "Log", SEP = " | ";
+var REKAP = "Jawaban", REKAP_TAB = "Rekap", LOG = "Log", SEP = " | ";
 var LOG_H = ["waktu", "lesson_id", "lesson", "nama", "kelas", "challenge", "no", "pertanyaan", "jawaban", "status", "skor", "percobaan"];
 var FIX_H = ["waktu", "lesson_id", "lesson", "nama", "kelas"];
 var FIX_N = FIX_H.length;
@@ -31,6 +33,29 @@ function out_(o) {
 }
 function admin_(k) { return k === PropertiesService.getScriptProperties().getProperty("ADMIN_KEY"); }
 function t_(v) { v = String(v == null ? "" : v); return /^[=+\-@]/.test(v) ? "'" + v : v; }
+
+// ---- TAB PER LESSON ----
+// Nama tab: "<jenis> - <judul lesson>", mis. "Rekap - Project My Name Card" (sama seperti tab yang sudah ada).
+function tabName_(prefix, title) {
+  var t = String(title || "").replace(/[\[\]\*\?\/\\:]/g, " ").replace(/\s+/g, " ").trim();
+  var base = prefix + " - ";
+  return base + t.slice(0, Math.max(0, 100 - base.length)).trim();
+}
+// Ambil (atau buat) tab milik satu lesson. Tab lain tidak disentuh.
+function lessonSheet_(prefix, id, title, header) {
+  var name = tabName_(prefix, title || lessonTitle_(id)), s = ss_().getSheetByName(name);
+  if (s) return s;
+  s = ss_().insertSheet(name);
+  s.appendRow(header); s.setFrozenRows(1); s.getRange(1, 1, 1, header.length).setFontWeight("bold");
+  return s;
+}
+function lessonTitle_(id) {
+  var sj = fbSetupJson_(id);
+  if (sj) { try { var t = JSON.parse(sj).title; if (t) return String(t); } catch (e) {} }
+  var lj = getLessonJson_(id);
+  if (lj) { try { var t2 = JSON.parse(lj).title; if (t2) return String(t2); } catch (e) {} }
+  return String(id);
+}
 
 // Migrasi sekali: sheet "Jawaban" format lama (kolom H = "pertanyaan") -> jadi Log
 function migrate_() {
@@ -88,6 +113,7 @@ function doGet(e) {
     return out_({ ok: false, error: "Feedback belum dibuka untuk lesson ini" });
   }
   if (e.parameter.action === "getFbMine") return out_(fbMine_(e.parameter.id, e.parameter.cls, e.parameter.no));
+  if (e.parameter.action === "getStars") return out_(starsMine_(e.parameter.id, e.parameter.cls, e.parameter.no));
   return out_({ ok: true });
 }
 
@@ -213,7 +239,7 @@ function recompute_(head, row) {
   });
 }
 function upsertRekap_(d) {
-  var s = sheet_(REKAP, FIX_H);
+  var s = lessonSheet_(REKAP_TAB, String(d.lessonId), d.lessonTitle, FIX_H);
   var wanted = wantedCols_(d.plan);
   d.items.forEach(function (it) { wanted.push(colKey_(it)); });
   var head = ensureCols_(s, wanted), W = head.length, n = s.getLastRow();
@@ -240,7 +266,7 @@ function upsertRekap_(d) {
 function onEdit(e) {
   try {
     var s = e.range.getSheet();
-    if (s.getName() !== REKAP || e.range.getRow() < 2 || e.range.getLastColumn() <= FIX_N) return;
+    if (s.getName().indexOf(REKAP_TAB + " - ") !== 0 || e.range.getRow() < 2 || e.range.getLastColumn() <= FIX_N) return;
     var W = s.getLastColumn(), head = s.getRange(1, 1, 1, W).getValues()[0].map(String);
     for (var r = e.range.getRow(); r <= e.range.getLastRow(); r++) {
       var rg = s.getRange(r, 1, 1, W), row = rg.getValues()[0];
@@ -253,11 +279,13 @@ function onEdit(e) {
   } catch (err) {}
 }
 function recomputeAll_() {
-  var s = ss_().getSheetByName(REKAP); if (!s || s.getLastRow() < 2) return;
-  var W = s.getLastColumn(), head = s.getRange(1, 1, 1, W).getValues()[0].map(String);
-  var rg = s.getRange(2, 1, s.getLastRow() - 1, W), v = rg.getValues();
-  v.forEach(function (row) { recompute_(head, row); });
-  rg.setValues(v);
+  ss_().getSheets().forEach(function (s) {
+    if (s.getName().indexOf(REKAP_TAB + " - ") !== 0 || s.getLastRow() < 2) return;
+    var W = s.getLastColumn(), head = s.getRange(1, 1, 1, W).getValues()[0].map(String);
+    var rg = s.getRange(2, 1, s.getLastRow() - 1, W), v = rg.getValues();
+    v.forEach(function (row) { recompute_(head, row); });
+    rg.setValues(v);
+  });
 }
 function onOpen() {
   SpreadsheetApp.getUi().createMenu("🤖 Robot Game").addItem("Hitung ulang semua nilai", "recomputeAll_").addToUi();
@@ -319,7 +347,7 @@ function fbClean_(answers) {
 function fbMine_(id, cls, no) {
   var sj = fbSetupJson_(id);
   if (!sj) return { ok: false, error: "Feedback belum dibuka untuk lesson ini" };
-  var setup = JSON.parse(sj), s = sheet_(FB, FB_H), n = s.getLastRow(), items = [];
+  var setup = JSON.parse(sj), s = lessonSheet_(FB, id, setup.title || lessonTitle_(id), FB_H), n = s.getLastRow(), items = [];
   if (n > 1) {
     s.getRange(2, 1, n - 1, FB_H.length).getValues().forEach(function (r) {
       if (String(r[1]) !== String(id) || String(r[2]).trim() !== String(cls || "").trim() || String(r[3]).trim() !== String(no || "").trim()) return;
@@ -331,6 +359,144 @@ function fbMine_(id, cls, no) {
   }
   items.sort(function (a, b) { return a.t < b.t ? 1 : -1; });
   return { ok: true, items: items };
+}
+
+// ---- URUTAN ABSEN & GALLERY WALK (bintang) ----
+// Urutan murid dalam satu kelas = urut nomor absen. "Absen berikutnya" = murid sesudahnya; yang terakhir kembali ke yang pertama.
+function fbClassList_(projects, cls) {
+  cls = String(cls == null ? "" : cls).trim();
+  var a = projects.filter(function (p) { return String(p.cls).trim() === cls; });
+  a.sort(function (x, y) {
+    var nx = parseFloat(x.no), ny = parseFloat(y.no);
+    if (!isNaN(nx) && !isNaN(ny) && nx !== ny) return nx - ny;
+    return String(x.no) < String(y.no) ? -1 : String(x.no) > String(y.no) ? 1 : 0;
+  });
+  return a;
+}
+function fbNext_(projects, cls, no) {
+  var a = fbClassList_(projects, cls), me = String(no == null ? "" : no).trim();
+  for (var i = 0; i < a.length; i++) if (String(a[i].no).trim() === me) return a.length > 1 ? a[(i + 1) % a.length] : null;
+  return null;
+}
+var STARS = "Stars";
+var ST_H = ["waktu", "lesson_id", "kelas", "no_pemberi", "nama_pemberi", "no_penerima", "nama_penerima"];
+function starTokens_(setup) { var n = Math.floor(Number(setup.starTokens)); return n >= 1 && n <= 50 ? n : 5; }
+function starsList_(id, cls, no) {
+  var s = lessonSheet_("Bintang", id, lessonTitle_(id), ST_H), n = s.getLastRow(), mine = [];
+  if (n > 1) s.getRange(2, 1, n - 1, ST_H.length).getValues().forEach(function (r) {
+    if (String(r[1]) === String(id) && String(r[2]).trim() === String(cls).trim() && String(r[3]).trim() === String(no).trim()) mine.push(String(r[5]).trim());
+  });
+  return mine;
+}
+function starsMine_(id, cls, no) {
+  var sj = fbSetupJson_(id);
+  if (!sj) return { ok: false, error: "Feedback belum dibuka untuk lesson ini" };
+  var setup = JSON.parse(sj);
+  return { ok: true, enabled: !!setup.stars, tokens: starTokens_(setup), mine: setup.stars ? starsList_(id, cls, no) : [] };
+}
+
+
+// ---- REKAP & ANALISIS BINTANG (untuk guru) ----
+function fbCounts_(id) {
+  var sh = lessonSheet_(FB, id, lessonTitle_(id), FB_H), n = sh.getLastRow(), got = {}, sent = {};
+  if (n > 1) sh.getRange(2, 1, n - 1, 10).getValues().forEach(function (r) {
+    if (String(r[1]) !== String(id) || String(r[9]).trim()) return;
+    var a = String(r[2]).trim() + "|" + String(r[3]).trim(), b = String(r[5]).trim() + "|" + String(r[6]).trim();
+    got[a] = (got[a] || 0) + 1; sent[b] = (sent[b] || 0) + 1;
+  });
+  return { got: got, sent: sent };
+}
+function round1_(x) { return Math.round(x * 10) / 10; }
+function nameList_(a, max) { var n = a.map(function (p) { return p.name; }); return n.length > max ? n.slice(0, max).join(", ") + " dan " + (n.length - max) + " lainnya" : n.join(", "); }
+function starReport_(id) {
+  var sj = fbSetupJson_(id); if (!sj) return null;
+  var setup = JSON.parse(sj), P = setup.projects || [], tokens = starTokens_(setup), title = setup.title || lessonTitle_(id);
+  var sh = lessonSheet_("Bintang", id, title, ST_H), n = sh.getLastRow(), recv = {}, given = {}, total = 0;
+  if (n > 1) sh.getRange(2, 1, n - 1, ST_H.length).getValues().forEach(function (r) {
+    if (String(r[1]) !== String(id)) return;
+    var cls = String(r[2]).trim(), from = cls + "|" + String(r[3]).trim(), to = cls + "|" + String(r[5]).trim();
+    recv[to] = (recv[to] || 0) + 1; given[from] = (given[from] || 0) + 1; total++;
+  });
+  var fb = fbCounts_(id), order = [], classes = [], rows = [], notes = [];
+  P.forEach(function (p) { var c = String(p.cls).trim(); if (order.indexOf(c) < 0) order.push(c); });
+  order.forEach(function (cls) {
+    var ps = fbClassList_(P, cls).map(function (p) {
+      var k = cls + "|" + String(p.no).trim();
+      return { cls: cls, no: String(p.no), name: String(p.name), stars: recv[k] || 0, given: given[k] || 0, fbGot: fb.got[k] || 0, fbSent: fb.sent[k] || 0 };
+    });
+    var tot = ps.reduce(function (a, p) { return a + p.stars; }, 0);
+    var sorted = ps.slice().sort(function (a, b) { return b.stars - a.stars; }), rank = 0, prev = null;
+    sorted.forEach(function (p, i) { if (p.stars !== prev) { rank = i + 1; prev = p.stars; } p.rank = rank; p.pct = tot ? round1_(p.stars / tot * 100) : 0; });
+    var N = ps.length, givers = ps.filter(function (p) { return p.given > 0; }), full = ps.filter(function (p) { return p.given >= tokens; });
+    var zero = ps.filter(function (p) { return p.stars === 0; }), noGive = ps.filter(function (p) { return p.given === 0; });
+    var max = N ? sorted[0].stars : 0, champs = max > 0 ? sorted.filter(function (p) { return p.stars === max; }) : [];
+    var c = { cls: cls, students: N, givers: givers.length, full: full.length, total: tot, avg: N ? round1_(tot / N) : 0, max: max, champs: nameList_(champs, 4), zero: zero.map(function (p) { return p.name; }), noGive: noGive.map(function (p) { return p.name; }) };
+    classes.push(c);
+    var L = [];
+    if (!tot) L.push("Belum ada bintang yang diberikan di kelas ini.");
+    else {
+      L.push("Terbanyak: " + nameList_(champs, 4) + " (" + max + " ⭐)" + (champs.length > 1 ? " — seri." : "."));
+      L.push("Partisipasi: " + givers.length + " dari " + N + " murid sudah memberi bintang (" + Math.round(givers.length / N * 100) + "%), " + full.length + " murid menghabiskan semua " + tokens + " token.");
+      if (N >= 6 && tot >= 10) {
+        var top3 = sorted.slice(0, 3).reduce(function (a, p) { return a + p.stars; }, 0), share = Math.round(top3 / tot * 100);
+        L.push("3 project teratas mengumpulkan " + share + "% dari semua bintang" + (share >= 60 ? " — bintang terpusat di beberapa project." : " — sebaran cukup merata."));
+      }
+      if (zero.length) L.push(zero.length + " project belum mendapat bintang: " + nameList_(zero, 8) + ". Cocok diberi apresiasi / umpan balik khusus dari guru.");
+    }
+    if (noGive.length && tot) L.push("Belum memberi bintang: " + nameList_(noGive, 8) + ".");
+    notes.push({ cls: cls, lines: L });
+    sorted.forEach(function (p) { rows.push(p); });
+  });
+  return { ok: true, title: title, tokens: tokens, total: total, classes: classes, notes: notes, rows: rows, updated: new Date().toISOString() };
+}
+function writeStarSheet_(id, rep) {
+  var name = tabName_("Rekap Bintang", rep.title), s = ss_().getSheetByName(name);
+  if (!s) s = ss_().insertSheet(name);
+  s.getCharts().forEach(function (ch) { s.removeChart(ch); });
+  s.clear(); s.clearNotes();
+  var W = 9, M = [], fmt = [];
+  function add(arr, kind) { while (arr.length < W) arr.push(""); M.push(arr); fmt.push(kind || ""); return M.length; }
+  add(["Rekap Gallery Walk — " + t_(rep.title)], "title");
+  add(["Diperbarui " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd MMM yyyy HH:mm") + " • token bintang per murid: " + rep.tokens + " • total bintang: " + rep.total], "sub");
+  add([]);
+  add(["RINGKASAN PER KELAS"], "sec");
+  add(["Kelas", "Jumlah murid", "Murid memberi bintang", "Token habis", "Total ⭐", "Rata-rata ⭐/project", "⭐ tertinggi", "Terbanyak", "Belum dapat bintang"], "head");
+  rep.classes.forEach(function (c) { add([t_(c.cls), c.students, c.givers, c.full, c.total, c.avg, c.max, t_(c.champs), c.zero.length], ""); });
+  add([]);
+  add(["CATATAN UNTUK GURU"], "sec");
+  rep.notes.forEach(function (nt) { nt.lines.forEach(function (l, i) { add([t_(i === 0 ? nt.cls + ": " + l : "      " + l)], ""); }); });
+  add([]);
+  add(["PERINGKAT PROJECT (per kelas)"], "sec");
+  add(["Kelas", "Peringkat", "No", "Nama", "⭐ diterima", "% bintang kelas", "Bintang diberikan", "Feedback diterima", "Feedback dikirim"], "head");
+  var blocks = {}, first = M.length + 1;
+  rep.rows.forEach(function (p) {
+    var r = add([t_(p.cls), p.rank, t_(p.no), t_(p.name), p.stars, p.pct / 100, p.given, p.fbGot, p.fbSent], p.stars > 0 && p.rank === 1 ? "gold" : "");
+    if (!blocks[p.cls]) blocks[p.cls] = { a: r, b: r }; else blocks[p.cls].b = r;
+  });
+  s.getRange(1, 1, M.length, W).setValues(M);
+  fmt.forEach(function (k, i) {
+    var r = s.getRange(i + 1, 1, 1, W);
+    if (k === "title") r.setFontWeight("bold").setFontSize(15);
+    else if (k === "sub") r.setFontColor("#5b6b8c");
+    else if (k === "sec") r.setFontWeight("bold").setFontColor("#1B4F9C");
+    else if (k === "head") r.setFontWeight("bold").setBackground("#e6edfa");
+    else if (k === "gold") r.setBackground("#fff4cc");
+  });
+  if (rep.rows.length) s.getRange(first, 6, rep.rows.length, 1).setNumberFormat("0.0%");
+  [90, 100, 80, 190, 90, 110, 110, 120, 120].forEach(function (w, i) { s.setColumnWidth(i + 1, w); });
+  s.setFrozenRows(0);
+  // chart batang per kelas (di sebelah kanan tabel)
+  var top = 4;
+  rep.classes.forEach(function (c) {
+    var b = blocks[c.cls]; if (!b) return;
+    var rows = b.b - b.a + 1, h = Math.max(220, rows * 24 + 70);
+    s.insertChart(s.newChart().setChartType(Charts.ChartType.BAR).addRange(s.getRange(b.a, 4, rows, 2)).setNumHeaders(0)
+      .setOption("title", "⭐ Bintang diterima — " + c.cls).setOption("legend", { position: "none" }).setOption("colors", ["#E8832A"])
+      .setOption("width", 560).setOption("height", h).setOption("hAxis", { minValue: 0, format: "0" }).setOption("reverseCategories", true)
+      .setPosition(top, 11, 0, 0).build());
+    top += Math.ceil(h / 21) + 1;
+  });
+  return { gid: s.getSheetId(), tab: s.getName() };
 }
 
 function doPost(e) {
@@ -376,7 +542,7 @@ function doPost(e) {
   if (d.action === "saveFbSetup") {
     if (!admin_(d.key)) return out_({ ok: false, error: "Kunci admin salah" });
     var setup = d.setup || {};
-    var sjson = JSON.stringify({ title: d.lessonTitle || "", prompt: String(setup.prompt || ""), showFrom: !!setup.showFrom, projects: setup.projects || [] });
+    var sjson = JSON.stringify({ title: d.lessonTitle || "", prompt: String(setup.prompt || ""), showFrom: !!setup.showFrom, gallery: setup.gallery !== false, stars: !!setup.stars, starTokens: Math.max(1, Math.min(50, Math.floor(Number(setup.starTokens)) || 5)), assignNext: !!setup.assignNext, projects: setup.projects || [] });
     if (sjson.length > 49000) return out_({ ok: false, error: "Data terlalu besar (maks sekitar 350 murid per lesson)" });
     var fs = sheet_(FBS, ["id", "json", "updated"]), fr = fs.getDataRange().getValues(), frow = [String(d.lessonId), sjson, new Date()], saved = false;
     for (var fi = 1; fi < fr.length; fi++) {
@@ -388,7 +554,7 @@ function doPost(e) {
   }
   if (d.action === "getFbAll") {
     if (!admin_(d.key)) return out_({ ok: false, error: "Kunci admin salah" });
-    var as = sheet_(FB, FB_H), an = as.getLastRow(), rows = [];
+    var as = lessonSheet_(FB, d.lessonId, lessonTitle_(d.lessonId), FB_H), an = as.getLastRow(), rows = [];
     fbHeader_(as);
     if (an > 1) {
       as.getRange(2, 1, an - 1, FB_H.length).getValues().forEach(function (r) {
@@ -397,7 +563,7 @@ function doPost(e) {
         rows.push(r.slice(0, 10));
       });
     }
-    return out_({ ok: true, rows: rows });
+    return out_({ ok: true, rows: rows, gid: as.getSheetId(), tab: as.getName() });
   }
   if (d.action === "sendFeedback") {
     var fj = fbSetupJson_(d.lessonId);
@@ -410,11 +576,16 @@ function doPost(e) {
     if (fans && fans.every(function (x) { return x.t === "text" ? !String(x.a).trim() : !x.a; })) ftext = "";
     if (!from || !to) return out_({ ok: false, error: "Data murid tidak ditemukan" });
     if (from === to) return out_({ ok: false, error: "Tidak bisa memberi feedback ke project sendiri" });
+    var fsetup = JSON.parse(fj);
+    if (fsetup.assignNext) {
+      var must = fbNext_(plist, from.cls, from.no);
+      if (!must || String(must.cls).trim() !== String(to.cls).trim() || String(must.no).trim() !== String(to.no).trim()) return out_({ ok: false, error: "Kamu hanya boleh memberi feedback ke " + (must ? must.no + ". " + must.name : "teman yang ditentukan guru") });
+    }
     if (!ftext) return out_({ ok: false, error: "Feedback masih kosong" });
     var flock = LockService.getScriptLock();
     flock.waitLock(30000);
     try {
-      var sh = sheet_(FB, FB_H), fn = sh.getLastRow(), at = -1;
+      var sh = lessonSheet_(FB, d.lessonId, fsetup.title || lessonTitle_(d.lessonId), FB_H), fn = sh.getLastRow(), at = -1;
       fbHeader_(sh);
       if (fn > 1) {
         var fv = sh.getRange(2, 1, fn - 1, 8).getValues();
@@ -428,6 +599,46 @@ function doPost(e) {
       else sh.appendRow([new Date(), t_(d.lessonId), t_(to.cls), t_(to.no), t_(to.name), t_(from.cls), t_(from.no), t_(from.name), t_(ftext), "", fdata]);
     } finally { flock.releaseLock(); }
     return out_({ ok: true });
+  }
+  if (d.action === "toggleStar") {
+    var tj = fbSetupJson_(d.lessonId);
+    if (!tj) return out_({ ok: false, error: "Feedback belum dibuka untuk lesson ini" });
+    var tsetup = JSON.parse(tj), tlist = tsetup.projects || [];
+    if (!tsetup.stars) return out_({ ok: false, error: "Pemberian bintang tidak aktif" });
+    var tf = fbFind_(tlist, d.from && d.from.cls, d.from && d.from.no), tt = fbFind_(tlist, d.to && d.to.cls, d.to && d.to.no);
+    if (!tf || !tt) return out_({ ok: false, error: "Data murid tidak ditemukan" });
+    if (tf === tt) return out_({ ok: false, error: "Tidak bisa memberi bintang ke project sendiri" });
+    if (String(tf.cls).trim() !== String(tt.cls).trim()) return out_({ ok: false, error: "Bintang hanya untuk teman sekelas" });
+    var tlock = LockService.getScriptLock();
+    tlock.waitLock(30000);
+    try {
+      var ts = lessonSheet_("Bintang", d.lessonId, tsetup.title || lessonTitle_(d.lessonId), ST_H), tn = ts.getLastRow(), tat = -1, used = 0, tv = tn > 1 ? ts.getRange(2, 1, tn - 1, ST_H.length).getValues() : [];
+      tv.forEach(function (r, k) {
+        if (String(r[1]) !== String(d.lessonId) || String(r[2]).trim() !== String(tf.cls).trim() || String(r[3]).trim() !== String(tf.no).trim()) return;
+        used++;
+        if (String(r[5]).trim() === String(tt.no).trim()) tat = k + 2;
+      });
+      if (d.on && tat < 0) {
+        if (used >= starTokens_(tsetup)) return out_({ ok: false, error: "Bintangmu sudah habis. Tarik bintang dari project lain dulu kalau mau memindahkan." });
+        ts.appendRow([new Date(), t_(d.lessonId), t_(tf.cls), t_(tf.no), t_(tf.name), t_(tt.no), t_(tt.name)]);
+      } else if (!d.on && tat > 0) ts.deleteRow(tat);
+    } finally { tlock.releaseLock(); }
+    return out_({ ok: true, tokens: starTokens_(tsetup), mine: starsList_(d.lessonId, tf.cls, tf.no) });
+  }
+  if (d.action === "getStarsAll") {
+    if (!admin_(d.key)) return out_({ ok: false, error: "Kunci admin salah" });
+    var ss2 = lessonSheet_("Bintang", d.lessonId, lessonTitle_(d.lessonId), ST_H), sn = ss2.getLastRow(), srows = [];
+    if (sn > 1) ss2.getRange(2, 1, sn - 1, ST_H.length).getValues().forEach(function (r) { if (String(r[1]) === String(d.lessonId)) srows.push(r.slice(2)); });
+    return out_({ ok: true, rows: srows });
+  }
+  if (d.action === "getStarReport") {
+    if (!admin_(d.key)) return out_({ ok: false, error: "Kunci admin salah" });
+    var rep = starReport_(d.lessonId);
+    if (!rep) return out_({ ok: false, error: "Feedback belum dibuka untuk lesson ini" });
+    if (d.write !== false) {
+      try { var wr = writeStarSheet_(d.lessonId, rep); rep.gid = wr.gid; rep.tab = wr.tab; } catch (err) { rep.sheetErr = String(err); }
+    }
+    return out_(rep);
   }
   if (d.action === "submit") {
     var lock = LockService.getScriptLock();
